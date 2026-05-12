@@ -8,6 +8,15 @@ Unofficial integration for **Maytronics Dolphin** robots that use the **MyDolphi
 - **Bluetooth** integration (built‑in adapter or **Bluetooth proxy** in range of the pool).
 - Robot MAC address (from HA Bluetooth device list, nRF Connect, or router).
 
+## Troubleshooting: "not visible to Home Assistant"
+
+HA only connects if it has **recently heard** your robot on Bluetooth (it keeps a small cache of devices).
+
+1. **Settings → Devices & services → Bluetooth** — scroll the list. If your Dolphin **never** appears, HA cannot connect until it does (range, walls, water).
+2. **Close MyDolphin** on the phone and ensure the robot is **not** connected elsewhere — some units advertise rarely while another client holds GATT.
+3. **Bluetooth proxy** (ESPHome, Shelly, etc.) **near the pool** often works better than the HA server in the house.
+4. Confirm the MAC matches what that Bluetooth page shows (format `22:55:4C:07:4D:50`).
+
 ## Install (HACS)
 
 1. HACS → **Integrations** → **⋮** → **Custom repositories**

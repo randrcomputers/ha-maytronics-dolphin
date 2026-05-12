@@ -35,11 +35,20 @@ async def send_gatt_packet(
     pass smaller delays for that case.
     """
     addr = address.upper()
+    # Prefer connectable advertisements (required for GATT). Some stacks only cache
+    # non-connectable beacons briefly — try both before failing.
     ble_device = bluetooth.async_ble_device_from_address(hass, addr, connectable=True)
     if ble_device is None:
+        ble_device = bluetooth.async_ble_device_from_address(
+            hass, addr, connectable=False
+        )
+    if ble_device is None:
         raise HomeAssistantError(
-            "Bluetooth device not visible to Home Assistant. "
-            "Confirm the MAC, range, and that a Bluetooth adapter or proxy sees this device."
+            f"Dolphin ({addr}) is not in Home Assistant's Bluetooth cache. "
+            "HA must hear the robot advertising while idle: close the MyDolphin app "
+            "(disconnect), move the robot or a Bluetooth proxy within range, wait "
+            "1–2 minutes, then check Settings → Devices & services → Bluetooth — the "
+            "device should appear there. Wrong MAC also causes this."
         )
 
     try:
