@@ -1,13 +1,13 @@
 {
   "domain": "maytronics_dolphin",
   "name": "Maytronics Dolphin (BLE)",
-  "codeowners": ["@YOUR_GITHUB_USER"],
+  "codeowners": ["@randrcomputers"],
   "config_flow": true,
   "dependencies": ["bluetooth"],
-  "documentation": "https://github.com/YOUR_USER/ha-maytronics-dolphin",
+  "documentation": "https://github.com/randrcomputers/ha-maytronics-dolphin",
   "integration_type": "device",
   "iot_class": "assumed_state",
-  "issue_tracker": "https://github.com/YOUR_USER/ha-maytronics-dolphin/issues",
+  "issue_tracker": "https://github.com/randrcomputers/ha-maytronics-dolphin/issues",
   "requirements": [],
   "version": "0.2.0"
 }
