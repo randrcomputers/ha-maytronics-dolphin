@@ -7,10 +7,13 @@ request buffer matches that layout with ``DolphinData``‑style CRC in the last 
 
 from __future__ import annotations
 
+import logging
 from enum import IntEnum
 
 from .const import SOP
 from .protocol import crc_run
+
+_LOGGER = logging.getLogger(__name__)
 
 # ``com.maytronics.mydolphin.model.data.ConfigParamsRead.CommandType`` — PS_State (BidiOrder.NSM).
 CONFIG_PARAMS_CMD_PS_STATE = 13
@@ -60,8 +63,12 @@ def parse_config_params_ps_state(data: bytes) -> PSState | None:
             return None
         ps_byte = data[i + 3]
         if i + 47 <= len(data) and not _crc_ok_47(data, i):
-            i += 1
-            continue
+            # Response CRC may differ from our request convention; still surface PS byte.
+            _LOGGER.debug(
+                "PS_State notify CRC mismatch (using byte %s anyway); frame=%s",
+                ps_byte,
+                data[i : i + 47].hex(),
+            )
         try:
             return PSState(ps_byte)
         except ValueError:
