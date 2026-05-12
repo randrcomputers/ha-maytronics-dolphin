@@ -9,5 +9,11 @@
   "iot_class": "assumed_state",
   "issue_tracker": "https://github.com/randrcomputers/ha-maytronics-dolphin/issues",
   "requirements": [],
-  "version": "0.2.1"
+  "version": "0.3.0",
+  "bluetooth": [
+    {
+      "connectable": true,
+      "service_uuid": "0000fff0-0000-1000-8000-00805f9b34fb"
+    }
+  ]
 }

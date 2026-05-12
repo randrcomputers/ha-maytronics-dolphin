@@ -7,7 +7,9 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.components.bluetooth import BluetoothServiceInfoBleak
 from homeassistant.data_entry_flow import FlowResult
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import selector
 
 from .const import CONF_ADDRESS, CONF_NAME, DEFAULT_NAME, DOMAIN
@@ -20,6 +22,26 @@ class MaytronicsDolphinConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    async def async_step_bluetooth(
+        self, discovery_info: BluetoothServiceInfoBleak
+    ) -> FlowResult:
+        """Device discovered via Bluetooth (see manifest `bluetooth` matchers)."""
+        address = discovery_info.address
+        await self.async_set_unique_id(dr.format_mac(address))
+        self._abort_if_unique_id_configured()
+
+        name = (discovery_info.name or "").strip()
+        if not name or name.lower() in ("unknown", "n/a"):
+            name = DEFAULT_NAME
+
+        return self.async_create_entry(
+            title=name,
+            data={
+                CONF_ADDRESS: dr.format_mac(address),
+                CONF_NAME: name,
+            },
+        )
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -30,17 +52,14 @@ class MaytronicsDolphinConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if not _MAC_RE.match(address):
                 errors["base"] = "invalid_mac"
             else:
-                address = address.upper()
-                if any(
-                    e.data.get(CONF_ADDRESS, "").upper() == address
-                    for e in self.hass.config_entries.async_entries(DOMAIN)
-                ):
-                    return self.async_abort(reason="already_configured")
+                address_fmt = dr.format_mac(address)
+                await self.async_set_unique_id(address_fmt)
+                self._abort_if_unique_id_configured()
 
                 name = (user_input.get(CONF_NAME) or "").strip() or DEFAULT_NAME
                 return self.async_create_entry(
                     title=name,
-                    data={CONF_ADDRESS: address, CONF_NAME: name},
+                    data={CONF_ADDRESS: address_fmt, CONF_NAME: name},
                 )
 
         schema = vol.Schema(

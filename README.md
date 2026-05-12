@@ -6,7 +6,16 @@ Unofficial integration for **Maytronics Dolphin** robots that use the **MyDolphi
 
 - Home Assistant **2024.1+** (HAOS / Supervised supported).
 - **Bluetooth** integration (built‑in adapter or **Bluetooth proxy** in range of the pool).
-- Robot MAC address (from HA Bluetooth device list, nRF Connect, or router).
+- Robot MAC address — **optional** if you use **Bluetooth discovery** (v0.3+).
+
+## Bluetooth discovery (v0.3+)
+
+The integration declares a manifest matcher for the Maytronics **GATT service** UUID
+`0000fff0-0000-1000-8000-00805f9b34fb` (MyDolphin `CC2540_SERVICE_UUID`).
+
+When Home Assistant’s Bluetooth stack (adapter or **proxy**) sees that UUID in a **connectable** advertisement, HA can offer **Maytronics Dolphin (BLE)** on the integrations page — **MAC is filled automatically**.
+
+**Caveat:** some firmwares only expose `FFF0` after connection, or only in scan response. If discovery never triggers, use **manual setup** (MAC entry) once HA can see the device at all.
 
 ## Troubleshooting: "not visible to Home Assistant"
 
@@ -23,9 +32,9 @@ HA only connects if it has **recently heard** your robot on Bluetooth (it keeps 
 2. Add this GitHub repo, category **Integration**
 3. Install **Maytronics Dolphin (BLE)**, restart HA
 4. **Settings → Devices & services → Add integration → Maytronics Dolphin (BLE)**
-5. Enter **MAC** and optional **name**
+5. Either accept a **discovered** Maytronics Dolphin entry when it appears, **or** choose **Manual** / **Add integration** again and enter **MAC** + optional **name**.
 
-## Entities (v0.2)
+## Entities (v0.3)
 
 | Type | What it does |
 |------|----------------|
