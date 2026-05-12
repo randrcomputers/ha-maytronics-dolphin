@@ -38,9 +38,22 @@ def finalize_19(buf: bytearray) -> bytes:
 
 
 class BTCommandType(IntEnum):
-    """MyDolphin `BTCommand.CommandType` codes (incl. BidiOrder-backed values)."""
+    """`com.maytronics.mydolphin.model.data.BTCommand.CommandType` (JADX / classes2.dex).
 
-    JOYSTICK = 3
+    UUID for this command set: ``0000fff8-0000-1000-8000-00805f9b34fb`` (`BTCommand.UUID`).
+
+    The APK enum ends at ``Leds`` (iText ``BidiOrder.S`` == 16). There is **no**
+    separate ``CommandType`` for “start normal clean” / “run cycle” — that flow
+    uses these opcodes (e.g. ``Startup_dolphin``, ``Autoclean_Enable``) and/or
+    other ``DolphinData`` writes (e.g. config on ``fff9``/``fffa``), not an extra
+    FFF8 opcode.
+
+    Ordinal layout matches ``BTCommand.getBytes()`` switch: only ``Leds``,
+    ``Joystick_cmd``, ``Autoclean_Enable``, and ``Card_Test`` set payload bytes;
+    all others leave ``bArr[2..17]`` zero after ``Arrays.fill``.
+    """
+
+    JOYSTICK = 3  # Joystick_cmd
     QUITE_RC_MODE = 4
     RESET_FAULTS = 5
     SHUTDOWN = 6
