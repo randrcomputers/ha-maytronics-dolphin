@@ -38,6 +38,15 @@ def build_config_params_read_request(command_code: int = CONFIG_PARAMS_CMD_PS_ST
     return bytes(buf)
 
 
+def build_config_params_read_request_46(command_code: int = CONFIG_PARAMS_CMD_PS_STATE) -> bytes:
+    """46-byte variant (same layout as ``ConfigParamsWrite`` length in JADX)."""
+    buf = bytearray(46)
+    buf[0] = SOP & 0xFF
+    buf[1] = int(command_code) & 0xFF
+    buf[45] = crc_run(bytes(buf[:45]), 45)
+    return bytes(buf)
+
+
 def _crc_ok_47(frame: bytes, start: int) -> bool:
     if start + 47 > len(frame):
         return False

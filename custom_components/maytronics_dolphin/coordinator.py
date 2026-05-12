@@ -11,11 +11,11 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .config_params import PSState
 from .connection import DolphinBleConnection
-from .const import DOMAIN
+from .const import DOMAIN, DOLPHIN_STATE_POLL_INTERVAL_SEC
 
 _LOGGER = logging.getLogger(__name__)
 
-PS_POLL_INTERVAL = timedelta(seconds=45)
+PS_POLL_INTERVAL = timedelta(seconds=DOLPHIN_STATE_POLL_INTERVAL_SEC)
 
 
 class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):

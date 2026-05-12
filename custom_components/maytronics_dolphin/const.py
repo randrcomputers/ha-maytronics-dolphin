@@ -33,6 +33,12 @@ DEFAULT_NAME = "Dolphin"
 # advertisement before failing (seconds). Helps first button press after HA restart.
 BLE_ADVERTISEMENT_WAIT_SECONDS = 25
 
+# Reconnect if the link dropped (some stacks idle-out GATT between commands).
+BLE_SESSION_KEEPALIVE_INTERVAL_SEC = 90
+
+# Coordinator: PS_State + status probe interval while integration is loaded.
+DOLPHIN_STATE_POLL_INTERVAL_SEC = 20
+
 # Runtime keys (hass.data[DOMAIN][entry_id])
 DATA_BLE_SESSION = "ble_session"
 DATA_COORDINATOR = "coordinator"

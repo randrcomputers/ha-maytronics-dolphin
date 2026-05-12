@@ -8,8 +8,19 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
-from .connection import DolphinBleConnection, async_schedule_initial_connect
-from .const import CONF_ADDRESS, DATA_BLE_SESSION, DATA_CARD_SUB, DATA_COORDINATOR, DATA_JOY, DOMAIN
+from .connection import (
+    DolphinBleConnection,
+    async_ble_session_keepalive,
+    async_schedule_initial_connect,
+)
+from .const import (
+    CONF_ADDRESS,
+    DATA_BLE_SESSION,
+    DATA_CARD_SUB,
+    DATA_COORDINATOR,
+    DATA_JOY,
+    DOMAIN,
+)
 from .coordinator import DolphinCoordinator
 
 PLATFORMS: list[Platform] = [
@@ -34,6 +45,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         DATA_CARD_SUB: 4,
     }
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    keepalive = hass.async_create_background_task(
+        async_ble_session_keepalive(hass, entry.entry_id),
+        f"{DOMAIN}_ble_keepalive_{entry.entry_id[:8]}",
+    )
+    entry.async_on_unload(keepalive.cancel)
 
     hass.async_create_background_task(
         async_schedule_initial_connect(hass, entry.entry_id),

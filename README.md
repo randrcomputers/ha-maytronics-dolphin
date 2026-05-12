@@ -30,6 +30,12 @@ HA only connects if it has **recently heard** your robot on Bluetooth (it keeps 
 3. **Bluetooth proxy** (ESPHome, Shelly, etc.) **near the pool** often works better than the HA server in the house.
 4. Use the **Address** in the device **tooltip** or Bluetooth device list, **not** the short **map label**. BLE often shows a **name** like `22554C074D50` (MAC digits without colons) while the **real connectable address** is different (e.g. `e0:ff:f1:41:12:61`). Put **either** value in the integration: **v0.3.5+** can resolve the on-air address when the config matches the advertised **name** (same 12 hex digits) **and** the MyDolphin **FFF0** service is present (prefers **Texas Instruments** manufacturer `0x000D` when several FFF0 devices exist). **v0.3.4** fixed lowercase MAC lookups for HA’s cache.
 
+### BLE link vs MyDolphin app
+
+- HA keeps a **single BLE GATT session** to the robot (same pattern as other integrations: connect, run commands, leave the client open, **reconnect** if the stack drops the link). A background task also **nudges reconnect every ~90s** if the link went idle.
+- **Only one central** should use the robot at a time. If the **MyDolphin** app is connected, HA may not get notifies or may see timeouts — close the app (or disconnect in app) when testing HA state sensors.
+- **v0.6.2+** tries **several BLE strategies** for ``PS_State`` (same notify char vs write on ``fff9``, 46 vs 47 byte request). If **Cleaner state** stays ``unknown`` and **PS state data OK** stays off, check **Settings → System → Logs** (set logger ``custom_components.maytronics_dolphin`` to **debug**) or capture HCI while the app reads status so we can match your **Triton PS Plus** firmware exactly.
+
 ## Install (HACS)
 
 1. HACS → **Integrations** → **⋮** → **Custom repositories**
@@ -38,16 +44,16 @@ HA only connects if it has **recently heard** your robot on Bluetooth (it keeps 
 4. **Settings → Devices & services → Add integration → Maytronics Dolphin (BLE)**
 5. Enter **MAC** and optional **name**.
 
-## Entities (v0.6.0)
+## Entities (v0.6.2)
 
 | Type | What it does |
 |------|----------------|
-| **Sensor — Cleaner state** | Text from **PS_State** (``off`` / ``on`` / ``hold`` / ``programming`` / ``self_test`` / ``unknown``), same ~45s poll as Power sync. |
+| **Sensor — Cleaner state** | Text from **PS_State** (``off`` / ``on`` / ``hold`` / ``programming`` / ``self_test`` / ``unknown``), polled about every **20s** when HA holds a BLE link. |
 | **Sensor — Status raw (fffc)** | Diagnostic hex from a best-effort GATT **read** on ``fffc`` (may stay empty if the characteristic is notify-only on your model). |
 | **Sensor — Status raw (fffd)** | Same for ``fffd`` (internal params). |
 | **Binary sensor — Cleaning active** | On when PS_State is anything except ``off`` (includes hold / programming / self-test). |
 | **Binary sensor — PS state data OK** | On when the last poll received a parseable PS_State (diagnostic: BLE read path working). |
-| **Switch — Power** | 19-byte ``BTCommand`` **Startup_dolphin** / **Shutdown_dolphin** (``BLEManager.turnOnRobot`` / ``turnOffRobot`` on FFF8). Also uses PS_State poll so HA can match **physical** power-off when parsing works. |
+| **Switch — Power** | 19-byte ``BTCommand`` **Startup_dolphin** / **Shutdown_dolphin** (``BLEManager.turnOnRobot`` / ``turnOffRobot`` on FFF8). Uses PS_State poll for **physical** power-off when parsing works; **v0.6.2+** requests a coordinator refresh right after each tap. |
 | **Switch — Autoclean** | 19-byte ``Autoclean_Enable`` ON/OFF (``BLEManager.setAutocleanEnabled``) |
 | **Button — Quit RC / faults / Home / …** | 19-byte ``BTCommand`` for each opcode (``writePacket`` style), not 3-byte short frames |
 | **Button — Wall sensor poll** | 19-byte ``Wall_Sensor`` |
