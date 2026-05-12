@@ -53,11 +53,33 @@ git branch -M main
 git push -u origin main
 ```
 
-## 5. HACS
+## 5. HACS and GitHub “About” (share link)
 
-In the GitHub repo **About** section, add the topic **`home-assistant`** (optional but common).
+Anyone can install from a **custom repository** URL, for example:
 
-Users add the repo under HACS → **Custom repositories** → category **Integration** → your repo URL.
+`https://github.com/randrcomputers/ha-maytronics-dolphin`
+
+They use **HACS → Integrations → ⋮ → Custom repositories** → category **Integration** → paste that URL → **Add**, then install **Maytronics Dolphin (BLE)** and restart Home Assistant.
+
+### Repo description and topics (GitHub web UI)
+
+This is **not** stored in git; set it once on GitHub so the repo is easier to find.
+
+1. Open the repo on GitHub → gear icon **⚙** next to **About** (top right of the repo page).
+2. **Description** (example):  
+   `Unofficial Home Assistant integration for Maytronics Dolphin pool robots (MyDolphin BLE).`
+3. **Website** (optional): your HA Community thread or docs URL.
+4. **Topics**: type **`home-assistant`** and press Enter, then add others if you like (e.g. `home-assistant-custom`, `maytronics`, `dolphin`, `ble`, `hacs`).
+5. Save.
+
+### Same steps with GitHub CLI (if you install `gh`)
+
+```powershell
+gh auth login
+gh repo edit YOUR_USER/ha-maytronics-dolphin `
+  --description "Unofficial Home Assistant integration for Maytronics Dolphin pool robots (MyDolphin BLE)." `
+  --add-topic home-assistant
+```
 
 ## 6. Releases (optional)
 

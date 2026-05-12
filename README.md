@@ -2,6 +2,14 @@
 
 Unofficial integration for **Maytronics Dolphin** robots that use the **MyDolphin** BLE protocol (reverse‑engineered from the Android app and HCI captures). **Not affiliated with Maytronics.** Use at your own risk.
 
+## Share / install via HACS
+
+**Custom repository URL:** [https://github.com/randrcomputers/ha-maytronics-dolphin](https://github.com/randrcomputers/ha-maytronics-dolphin)
+
+Add that repo under HACS → **Integrations** → **⋮** → **Custom repositories** (category **Integration**), then install **Maytronics Dolphin (BLE)**. This is not the default HACS store; anyone with the link can install the same way.
+
+Maintainers: set the GitHub **About** description and topic **`home-assistant`** so others can discover the repo — see **`PUBLISHING.md` §5**.
+
 ## Requirements
 
 - Home Assistant **2024.1+** (HAOS / Supervised supported).
@@ -34,7 +42,7 @@ HA only connects if it has **recently heard** your robot on Bluetooth (it keeps 
 
 - HA keeps a **single BLE GATT session** to the robot (same pattern as other integrations: connect, run commands, leave the client open, **reconnect** if the stack drops the link). A background task also **nudges reconnect every ~90s** if the link went idle.
 - **Only one central** should use the robot at a time. If the **MyDolphin** app is connected, HA may not get notifies or may see timeouts — close the app (or disconnect in app) when testing HA state sensors.
-- **v0.6.2+** tries **several BLE strategies** for ``PS_State`` (same notify char vs write on ``fff9``, 46 vs 47 byte request). If **Cleaner state** stays ``unknown`` and **PS state data OK** stays off, check **Settings → System → Logs** (set logger ``custom_components.maytronics_dolphin`` to **debug**) or capture HCI while the app reads status so we can match your **Triton PS Plus** firmware exactly.
+- **v0.6.3+** reads **PS_State** with the same **3-byte** ``ConfigParamsRead`` frame as the MyDolphin app (notify ``fffa``, write ``fffa`` or ``fff9``). If **Cleaner state** stays ``unknown``, enable **debug** for ``custom_components.maytronics_dolphin`` or capture HCI while the app reads status.
 
 ## Install (HACS)
 
