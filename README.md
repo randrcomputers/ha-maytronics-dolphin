@@ -19,7 +19,7 @@ Automatic HACS/HA discovery via `manifest.json` **Bluetooth matchers** was **rem
 
 ### Clean up mistaken v0.3.0 entries
 
-**Settings → Devices & services → Maytronics Dolphin (BLE)** — remove config entries / devices that are **not** your pool cleaner (each bogus entry added ~15 entities). Keep only the real Dolphin (e.g. MAC `22:55:4C:…`).
+**Settings → Devices & services → Maytronics Dolphin (BLE)** — remove config entries / devices that are **not** your pool cleaner (each bogus entry added many entities). Keep only the real Dolphin (e.g. MAC `22:55:4C:…`).
 
 ## Troubleshooting: "not visible to Home Assistant"
 
@@ -38,11 +38,16 @@ HA only connects if it has **recently heard** your robot on Bluetooth (it keeps 
 4. **Settings → Devices & services → Add integration → Maytronics Dolphin (BLE)**
 5. Enter **MAC** and optional **name**.
 
-## Entities (v0.5.0)
+## Entities (v0.6.0)
 
 | Type | What it does |
 |------|----------------|
-| **Switch — Power** | 19-byte ``BTCommand`` **Startup_dolphin** / **Shutdown_dolphin** (``BLEManager.turnOnRobot`` / ``turnOffRobot`` on FFF8). **v0.5.0+** also polls **PS_State** via ``ConfigParamsRead`` on **fffa** every ~45s so HA updates when the robot is powered off **on the unit** (when BLE parse succeeds). |
+| **Sensor — Cleaner state** | Text from **PS_State** (``off`` / ``on`` / ``hold`` / ``programming`` / ``self_test`` / ``unknown``), same ~45s poll as Power sync. |
+| **Sensor — Status raw (fffc)** | Diagnostic hex from a best-effort GATT **read** on ``fffc`` (may stay empty if the characteristic is notify-only on your model). |
+| **Sensor — Status raw (fffd)** | Same for ``fffd`` (internal params). |
+| **Binary sensor — Cleaning active** | On when PS_State is anything except ``off`` (includes hold / programming / self-test). |
+| **Binary sensor — PS state data OK** | On when the last poll received a parseable PS_State (diagnostic: BLE read path working). |
+| **Switch — Power** | 19-byte ``BTCommand`` **Startup_dolphin** / **Shutdown_dolphin** (``BLEManager.turnOnRobot`` / ``turnOffRobot`` on FFF8). Also uses PS_State poll so HA can match **physical** power-off when parsing works. |
 | **Switch — Autoclean** | 19-byte ``Autoclean_Enable`` ON/OFF (``BLEManager.setAutocleanEnabled``) |
 | **Button — Quit RC / faults / Home / …** | 19-byte ``BTCommand`` for each opcode (``writePacket`` style), not 3-byte short frames |
 | **Button — Wall sensor poll** | 19-byte ``Wall_Sensor`` |
@@ -51,16 +56,16 @@ HA only connects if it has **recently heard** your robot on Bluetooth (it keeps 
 | **Button — Send joystick** | ``BLEManager.sendJoystickCommand`` path (shorter post-delay) |
 | **Select — Card test type** | Card test sub-byte + **Run card test** (``BLEManager.runCardTest``) |
 
-**Clean mode (“normal”, floor only, etc.)** in the app is ``BLEManager.setCleanMode`` → ``ConfigParamsWrite(CommandType.Working_Clean_Mode)`` on **fff9** (not an extra FFF8 opcode). Not implemented in this integration yet.
+**Clean mode, cycle minutes, weekly schedule, time** in the MyDolphin app are mostly **ConfigParamsWrite** / extra **ConfigParamsRead** opcodes on **fff9** / **fffa** with payloads we have **not** fully decoded in this repo yet — so there are **no** select/number/time entities for those until we add verified packet layouts (contributions welcome from JADX + HCI logs). The in-app clean mode path is ``BLEManager.setCleanMode`` → ``ConfigParamsWrite(Working_Clean_Mode)`` on **fff9**.
 
 ## Not implemented yet (needs more decompile / testing)
 
 - **ConfigParamsWrite** (`fff9`) — cycle time, clean mode, weekly timer, RTC, features, etc.
 - **ConfigParamsRead** beyond **PS_State** (same `fffa` path as the app’s read characteristic).
-- **GetStatusRead** (`fffc`) / **InternalParamsRead** (`fffd`) — status sensors.
+- **Decoded** status from **GetStatusRead** (`fffc`) / **InternalParamsRead** (`fffd`) — v0.6.0 only exposes **raw hex** if a plain GATT read succeeds.
 - **Firmware / OTA** (`fffb`) — intentionally omitted (dangerous).
 
-**v0.5.0** aligns **read/write UUIDs with JADX** (`ConfigParamsRead` → `fffa`, `ConfigParamsWrite` → `fff9`), which differs from a naive dex string-pool ordering; if your build behaves differently, adjust `const.py` and open a PR.
+**v0.5.0+** aligns **read/write UUIDs with JADX** (`ConfigParamsRead` → `fffa`, `ConfigParamsWrite` → `fff9`), which differs from a naive dex string-pool ordering; if your build behaves differently, adjust `const.py` and open a PR.
 
 ## Publishing to GitHub
 

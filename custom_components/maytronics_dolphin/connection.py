@@ -17,7 +17,13 @@ from .config_params import (
     build_config_params_read_request,
     parse_config_params_ps_state,
 )
-from .const import CONFIG_PARAMS_READ_UUID, DATA_BLE_SESSION, DOMAIN
+from .const import (
+    CONFIG_PARAMS_READ_UUID,
+    DATA_BLE_SESSION,
+    DOMAIN,
+    GET_STATUS_READ_UUID,
+    INTERNAL_PARAMS_READ_UUID,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -131,6 +137,27 @@ class DolphinBleConnection:
                         _LOGGER.debug(
                             "stop_notify after PS read (ignored)", exc_info=True
                         )
+
+    async def async_read_status_probe(self) -> tuple[bytes | None, bytes | None]:
+        """Try reads on ``fffc`` / ``fffd`` under one lock (may be unsupported on some models)."""
+        async with self._lock:
+            try:
+                client = await self._ensure_connected_locked()
+            except (BleakError, HomeAssistantError):
+                return (None, None)
+            ffc: bytes | None = None
+            ffd: bytes | None = None
+            try:
+                raw = await client.read_gatt_char(GET_STATUS_READ_UUID)
+                ffc = bytes(raw) if raw else None
+            except BleakError:
+                _LOGGER.debug("GATT read fffc failed", exc_info=True)
+            try:
+                raw = await client.read_gatt_char(INTERNAL_PARAMS_READ_UUID)
+                ffd = bytes(raw) if raw else None
+            except BleakError:
+                _LOGGER.debug("GATT read fffd failed", exc_info=True)
+            return (ffc, ffd)
 
     async def async_try_background_connect(self) -> None:
         """Best-effort connect shortly after startup (does not raise)."""

@@ -13,6 +13,8 @@ from .const import CONF_ADDRESS, DATA_BLE_SESSION, DATA_CARD_SUB, DATA_COORDINAT
 from .coordinator import DolphinCoordinator
 
 PLATFORMS: list[Platform] = [
+    Platform.BINARY_SENSOR,
+    Platform.SENSOR,
     Platform.SWITCH,
     Platform.BUTTON,
     Platform.NUMBER,

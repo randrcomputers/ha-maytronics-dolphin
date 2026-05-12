@@ -83,3 +83,26 @@ def ps_state_implies_power_on(state: PSState | None) -> bool | None:
     if state == PSState.OFF:
         return False
     return True
+
+
+PS_STATE_LABEL: dict[PSState, str] = {
+    PSState.OFF: "off",
+    PSState.ON: "on",
+    PSState.HOLD: "hold",
+    PSState.PROGRAMMING: "programming",
+    PSState.BIST: "self_test",
+}
+
+
+def ps_state_to_str(state: PSState | None) -> str:
+    """Human-readable cleaner state for ``sensor`` entities."""
+    if state is None:
+        return "unknown"
+    return PS_STATE_LABEL.get(state, f"unknown_code_{int(state)}")
+
+
+def ps_state_cleaning_active(state: PSState | None) -> bool | None:
+    """True when robot is not fully off (includes hold / programming / BIST)."""
+    if state is None:
+        return None
+    return state != PSState.OFF
