@@ -1,0 +1,20 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Maytronics Dolphin (BLE)",
+        "description": "Enter the Bluetooth MAC address of your Dolphin robot (as shown in the Bluetooth integration or nRF Connect).",
+        "data": {
+          "address": "Bluetooth MAC address",
+          "name": "Device name (optional)"
+        }
+      }
+    },
+    "error": {
+      "invalid_mac": "Invalid MAC address (use format AA:BB:CC:DD:EE:FF)"
+    },
+    "abort": {
+      "already_configured": "This device is already configured"
+    }
+  }
+}
