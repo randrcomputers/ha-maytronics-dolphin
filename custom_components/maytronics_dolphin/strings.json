@@ -14,8 +14,7 @@
       "invalid_mac": "Invalid MAC address (use format AA:BB:CC:DD:EE:FF)"
     },
     "abort": {
-      "already_configured": "This device is already configured",
-      "not_maytronics_dolphin": "Not a Maytronics TI BLE module (wrong manufacturer or service)."
+      "already_configured": "This device is already configured"
     }
   }
 }

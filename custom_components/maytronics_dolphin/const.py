@@ -26,10 +26,11 @@ POLYNOMIAL = 0xD8  # Java (byte)-40
 CMD_STARTUP = 0x07  # Startup_dolphin
 CMD_SHUTDOWN = 0x06  # Shutdown_dolphin
 
-# Bluetooth SIG company identifier: Texas Instruments (Maytronics BLE module in captures).
-MANUFACTURER_ID_TEXAS_INSTRUMENTS = 13  # 0x000D
-
 DEFAULT_NAME = "Dolphin"
+
+# If the MAC is not in HA's Bluetooth cache yet, wait this long for a connectable
+# advertisement before failing (seconds). Helps first button press after HA restart.
+BLE_ADVERTISEMENT_WAIT_SECONDS = 25
 
 # Runtime keys (hass.data[DOMAIN][entry_id])
 DATA_BLE_LOCK = "ble_lock"

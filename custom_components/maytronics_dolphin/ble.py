@@ -8,10 +8,16 @@ import logging
 from bleak import BleakClient
 from bleak.exc import BleakError
 from homeassistant.components import bluetooth
+from homeassistant.components.bluetooth import (
+    BluetoothScanningMode,
+    async_process_advertisements,
+    async_rediscover_address,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import device_registry as dr
 
-from .const import COMMAND_CHAR_UUID
+from .const import BLE_ADVERTISEMENT_WAIT_SECONDS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,7 +40,10 @@ async def send_gatt_packet(
     Mirrors `BLEManager.writePacket` pacing. Joystick path in app uses ~50 ms;
     pass smaller delays for that case.
     """
-    addr = address.upper()
+    # HA's Bluetooth histories and Bleak use lowercase MAC keys (same as
+    # `device_registry.format_mac`). Do not use `.upper()` here or cache lookups
+    # and advertisement matchers never hit.
+    addr = dr.format_mac(address.strip())
     # Prefer connectable advertisements (required for GATT). Some stacks only cache
     # non-connectable beacons briefly — try both before failing.
     ble_device = bluetooth.async_ble_device_from_address(hass, addr, connectable=True)
@@ -43,13 +52,33 @@ async def send_gatt_packet(
             hass, addr, connectable=False
         )
     if ble_device is None:
-        raise HomeAssistantError(
-            f"Dolphin ({addr}) is not in Home Assistant's Bluetooth cache. "
-            "HA must hear the robot advertising while idle: close the MyDolphin app "
-            "(disconnect), move the robot or a Bluetooth proxy within range, wait "
-            "1–2 minutes, then check Settings → Devices & services → Bluetooth — the "
-            "device should appear there. Wrong MAC also causes this."
+        # Not in cache yet — common right after HA restart or if the robot has not
+        # advertised recently. Ask the Bluetooth manager to wait for this MAC instead
+        # of failing instantly (HA discourages BleakClient(address) without BLEDevice).
+        async_rediscover_address(hass, addr)
+        _LOGGER.debug(
+            "Dolphin %s not in Bluetooth cache; waiting up to %ss for advertisement",
+            addr,
+            BLE_ADVERTISEMENT_WAIT_SECONDS,
         )
+        try:
+            service_info = await async_process_advertisements(
+                hass,
+                lambda _si: True,
+                {"address": addr},
+                BluetoothScanningMode.ACTIVE,
+                BLE_ADVERTISEMENT_WAIT_SECONDS,
+            )
+        except TimeoutError:
+            raise HomeAssistantError(
+                f"Dolphin ({addr}) did not advertise to Home Assistant within "
+                f"{BLE_ADVERTISEMENT_WAIT_SECONDS}s. "
+                "Close the MyDolphin app (disconnect), move the robot or a Bluetooth "
+                "proxy within range, wait for an idle advertising cycle, then check "
+                "Settings → Devices & services → Bluetooth — the device should appear "
+                "there before controls work. Wrong MAC also causes this."
+            ) from None
+        ble_device = service_info.device
 
     try:
         async with BleakClient(ble_device, timeout=30.0) as client:

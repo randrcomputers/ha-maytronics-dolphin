@@ -6,18 +6,16 @@ Unofficial integration for **Maytronics Dolphin** robots that use the **MyDolphi
 
 - Home Assistant **2024.1+** (HAOS / Supervised supported).
 - **Bluetooth** integration (built‑in adapter or **Bluetooth proxy** in range of the pool).
-- Robot MAC address — **optional** if you use **Bluetooth discovery** (v0.3+).
+- Robot **Bluetooth MAC** (required) — from HA’s Bluetooth device list or nRF Connect.
 
-## Bluetooth discovery (v0.3+)
+## Bluetooth discovery (disabled in v0.3.2)
 
-The integration declares a **strict** Bluetooth matcher:
+Automatic HACS/HA discovery via `manifest.json` **Bluetooth matchers** was **removed**:
 
-- **Service UUID** `0000fff0-0000-1000-8000-00805f9b34fb` (MyDolphin `CC2540_SERVICE_UUID`)
-- **Manufacturer ID** `13` (0x000D — **Texas Instruments**, the radio on Maytronics units in HCI captures)
+- **v0.3.0** — matcher on service **FFF0** only matched **many** non‑Dolphin devices.
+- **v0.3.1** — TI + FFF0 matcher fixed false positives, but some installs reported **HACS no longer listing the integration** (likely validation / refresh quirks with combined matchers).
 
-**Why:** The 16‑bit UUID **0xFFF0** is used by many unrelated BLE products as a generic vendor slot. Matching **FFF0 alone** (v0.3.0) incorrectly offered **every** such device as a Dolphin — pool sensors, Shelly, etc. **v0.3.1** requires **TI + FFF0** together.
-
-If your robot uses a **non‑TI** module and discovery never appears, use **manual** MAC setup and open an issue with nRF advertisement details.
+**v0.3.2** ships **manual setup only** (MAC in the config flow) so HACS stays reliable. Discovery can be revisited later (e.g. separate flow or validated matcher).
 
 ### Clean up mistaken v0.3.0 entries
 
@@ -25,12 +23,12 @@ If your robot uses a **non‑TI** module and discovery never appears, use **manu
 
 ## Troubleshooting: "not visible to Home Assistant"
 
-HA only connects if it has **recently heard** your robot on Bluetooth (it keeps a small cache of devices).
+HA only connects if it has **recently heard** your robot on Bluetooth (it keeps a small cache of devices). **v0.3.3+** waits up to **25 seconds** on each command for a connectable advertisement if the MAC is not in the cache yet (for example right after a restart).
 
 1. **Settings → Devices & services → Bluetooth** — scroll the list. If your Dolphin **never** appears, HA cannot connect until it does (range, walls, water).
 2. **Close MyDolphin** on the phone and ensure the robot is **not** connected elsewhere — some units advertise rarely while another client holds GATT.
 3. **Bluetooth proxy** (ESPHome, Shelly, etc.) **near the pool** often works better than the HA server in the house.
-4. Confirm the MAC matches what that Bluetooth page shows (format `22:55:4C:07:4D:50`).
+4. Use the **Address** in the device **tooltip** or Bluetooth device list, **not** the short **map label**. BLE often shows a **name** like `22554C074D50` (MAC digits without colons) while the **real connectable address** is different (e.g. `e0:ff:f1:41:12:61`). Put that **tooltip address** in the integration or HA will look up the wrong device. **v0.3.4+** normalizes MAC the same way as HA (lowercase); older builds uppercased the MAC and failed to find the device even when the Bluetooth map showed it.
 
 ## Install (HACS)
 
@@ -38,9 +36,9 @@ HA only connects if it has **recently heard** your robot on Bluetooth (it keeps 
 2. Add this GitHub repo, category **Integration**
 3. Install **Maytronics Dolphin (BLE)**, restart HA
 4. **Settings → Devices & services → Add integration → Maytronics Dolphin (BLE)**
-5. Either accept a **discovered** Maytronics Dolphin entry when it appears, **or** choose **Manual** / **Add integration** again and enter **MAC** + optional **name**.
+5. Enter **MAC** and optional **name**.
 
-## Entities (v0.3)
+## Entities (v0.3.2)
 
 | Type | What it does |
 |------|----------------|
