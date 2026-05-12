@@ -38,11 +38,11 @@ HA only connects if it has **recently heard** your robot on Bluetooth (it keeps 
 4. **Settings → Devices & services → Add integration → Maytronics Dolphin (BLE)**
 5. Enter **MAC** and optional **name**.
 
-## Entities (v0.4.1)
+## Entities (v0.5.0)
 
 | Type | What it does |
 |------|----------------|
-| **Switch — Power** | 19-byte ``BTCommand`` **Startup_dolphin** / **Shutdown_dolphin** (same as ``BLEManager.turnOnRobot`` / ``turnOffRobot`` on FFF8) |
+| **Switch — Power** | 19-byte ``BTCommand`` **Startup_dolphin** / **Shutdown_dolphin** (``BLEManager.turnOnRobot`` / ``turnOffRobot`` on FFF8). **v0.5.0+** also polls **PS_State** via ``ConfigParamsRead`` on **fffa** every ~45s so HA updates when the robot is powered off **on the unit** (when BLE parse succeeds). |
 | **Switch — Autoclean** | 19-byte ``Autoclean_Enable`` ON/OFF (``BLEManager.setAutocleanEnabled``) |
 | **Button — Quit RC / faults / Home / …** | 19-byte ``BTCommand`` for each opcode (``writePacket`` style), not 3-byte short frames |
 | **Button — Wall sensor poll** | 19-byte ``Wall_Sensor`` |
@@ -51,15 +51,16 @@ HA only connects if it has **recently heard** your robot on Bluetooth (it keeps 
 | **Button — Send joystick** | ``BLEManager.sendJoystickCommand`` path (shorter post-delay) |
 | **Select — Card test type** | Card test sub-byte + **Run card test** (``BLEManager.runCardTest``) |
 
-**Clean mode (“normal”, floor only, etc.)** in the app is ``BLEManager.setCleanMode`` → ``ConfigParamsWrite(CommandType.Working_Clean_Mode)`` on **fffa** (not an extra FFF8 opcode). Not implemented in this integration yet.
+**Clean mode (“normal”, floor only, etc.)** in the app is ``BLEManager.setCleanMode`` → ``ConfigParamsWrite(CommandType.Working_Clean_Mode)`` on **fff9** (not an extra FFF8 opcode). Not implemented in this integration yet.
 
 ## Not implemented yet (needs more decompile / testing)
 
-- **ConfigParamsRead / Write** (`fff9` / `fffa`) — cycle time, clean mode, weekly timer, RTC, features, etc.
+- **ConfigParamsWrite** (`fff9`) — cycle time, clean mode, weekly timer, RTC, features, etc.
+- **ConfigParamsRead** beyond **PS_State** (same `fffa` path as the app’s read characteristic).
 - **GetStatusRead** (`fffc`) / **InternalParamsRead** (`fffd`) — status sensors.
 - **Firmware / OTA** (`fffb`) — intentionally omitted (dangerous).
 
-UUID mapping for `fff9`–`fffd` follows the order embedded in the MyDolphin dex string pool; if a feature hits the wrong characteristic on your model, adjust `const.py` and open a PR.
+**v0.5.0** aligns **read/write UUIDs with JADX** (`ConfigParamsRead` → `fffa`, `ConfigParamsWrite` → `fff9`), which differs from a naive dex string-pool ordering; if your build behaves differently, adjust `const.py` and open a PR.
 
 ## Publishing to GitHub
 

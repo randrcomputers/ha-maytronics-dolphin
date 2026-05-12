@@ -51,7 +51,7 @@ class BTCommandType(IntEnum):
     The APK enum ends at ``Leds`` (iText ``BidiOrder.S`` == 16). There is **no**
     separate ``CommandType`` for “start normal clean” / “run cycle” — that flow
     uses these opcodes (e.g. ``Startup_dolphin``, ``Autoclean_Enable``) and/or
-    other ``DolphinData`` writes (e.g. config on ``fff9``/``fffa``), not an extra
+    other ``DolphinData`` writes (e.g. config on ``fff9`` write / ``fffa`` read), not an extra
     FFF8 opcode.
 
     Ordinal layout matches ``BTCommand.getBytes()`` switch: only ``Leds``,

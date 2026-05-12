@@ -10,8 +10,9 @@ SERVICE_UUID = "0000fff0-0000-1000-8000-00805f9b34fb"
 
 # `BTCommand.UUID` and neighbors (order confirmed in app dex string pool; verify in jadx if a model misbehaves).
 COMMAND_CHAR_UUID = "0000fff8-0000-1000-8000-00805f9b34fb"
-CONFIG_PARAMS_READ_UUID = "0000fff9-0000-1000-8000-00805f9b34fb"
-CONFIG_PARAMS_WRITE_UUID = "0000fffa-0000-1000-8000-00805f9b34fb"
+# JADX: ``ConfigParamsRead.UUID`` = fffa, ``ConfigParamsWrite.UUID`` = fff9 (not dex string order).
+CONFIG_PARAMS_READ_UUID = "0000fffa-0000-1000-8000-00805f9b34fb"
+CONFIG_PARAMS_WRITE_UUID = "0000fff9-0000-1000-8000-00805f9b34fb"
 FIRMWARE_CHAR_UUID = "0000fffb-0000-1000-8000-00805f9b34fb"  # DolphinData.UPLOAD_BURN_FIRMWARE — avoid writing unless you mean OTA.
 GET_STATUS_READ_UUID = "0000fffc-0000-1000-8000-00805f9b34fb"
 INTERNAL_PARAMS_READ_UUID = "0000fffd-0000-1000-8000-00805f9b34fb"
@@ -34,5 +35,6 @@ BLE_ADVERTISEMENT_WAIT_SECONDS = 25
 
 # Runtime keys (hass.data[DOMAIN][entry_id])
 DATA_BLE_SESSION = "ble_session"
+DATA_COORDINATOR = "coordinator"
 DATA_JOY = "joy"
 DATA_CARD_SUB = "card_sub"

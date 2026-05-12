@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from typing import Any
 
 from bleak import BleakClient
 from bleak.exc import BleakError
@@ -11,7 +12,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 
 from .ble import _noop_notify, async_resolve_ble_device
-from .const import DATA_BLE_SESSION, DOMAIN
+from .config_params import (
+    PSState,
+    build_config_params_read_request,
+    parse_config_params_ps_state,
+)
+from .const import CONFIG_PARAMS_READ_UUID, DATA_BLE_SESSION, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -83,6 +89,48 @@ class DolphinBleConnection:
             except BleakError as err:
                 await self._disconnect_locked()
                 raise HomeAssistantError(f"BLE error: {err}") from err
+
+    async def async_read_ps_state(
+        self,
+        *,
+        timeout: float = 8.0,
+        pre_write_delay: float = 0.15,
+    ) -> PSState | None:
+        """Write ``ConfigParamsRead`` (PS_State) on ``fffa`` and parse one notify."""
+        payload = build_config_params_read_request()
+        char_uuid = CONFIG_PARAMS_READ_UUID
+        async with self._lock:
+            acc = bytearray()
+            loop = asyncio.get_running_loop()
+            fut: asyncio.Future[PSState] = loop.create_future()
+            client: BleakClient | None = None
+
+            def _handler(_sender: Any, data: bytearray) -> None:
+                acc.extend(data)
+                parsed = parse_config_params_ps_state(bytes(acc))
+                if parsed is not None and not fut.done():
+                    fut.set_result(parsed)
+
+            try:
+                client = await self._ensure_connected_locked()
+                await client.start_notify(char_uuid, _handler)
+                await asyncio.sleep(pre_write_delay)
+                await client.write_gatt_char(char_uuid, payload, response=True)
+                return await asyncio.wait_for(fut, timeout=timeout)
+            except asyncio.TimeoutError:
+                _LOGGER.debug("ConfigParamsRead PS_State notify timeout")
+                return None
+            except BleakError as err:
+                await self._disconnect_locked()
+                raise HomeAssistantError(f"BLE error: {err}") from err
+            finally:
+                if client is not None:
+                    try:
+                        await client.stop_notify(char_uuid)
+                    except BleakError:
+                        _LOGGER.debug(
+                            "stop_notify after PS read (ignored)", exc_info=True
+                        )
 
     async def async_try_background_connect(self) -> None:
         """Best-effort connect shortly after startup (does not raise)."""

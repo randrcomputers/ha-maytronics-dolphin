@@ -10,15 +10,19 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .connection import DolphinBleConnection
+from .config_params import ps_state_implies_power_on
 from .const import (
     COMMAND_CHAR_UUID,
     CONF_ADDRESS,
     CONF_NAME,
     DATA_BLE_SESSION,
+    DATA_COORDINATOR,
     DOMAIN,
 )
+from .coordinator import DolphinCoordinator
 from .protocol import BTCommandType, build_bt_command_19
 
 SWITCH_POWER = "power"
@@ -31,9 +35,12 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Create switches."""
+    coordinator: DolphinCoordinator = hass.data[DOMAIN][entry.entry_id][
+        DATA_COORDINATOR
+    ]
     async_add_entities(
         [
-            DolphinPowerSwitch(entry),
+            DolphinPowerSwitch(coordinator, entry),
             DolphinAutocleanSwitch(entry),
         ],
         update_before_add=False,
@@ -75,11 +82,25 @@ class _DolphinBaseSwitch(SwitchEntity):
         await session.async_send_gatt_packet(payload, COMMAND_CHAR_UUID)
 
 
-class DolphinPowerSwitch(_DolphinBaseSwitch):
-    """19-byte ``Startup_dolphin`` / ``Shutdown_dolphin`` (``BLEManager.turnOn/OffRobot``)."""
+class DolphinPowerSwitch(CoordinatorEntity, _DolphinBaseSwitch):
+    """19-byte FFF8 power commands + ``ConfigParamsRead`` PS_State sync (``fffa``)."""
 
-    def __init__(self, entry: ConfigEntry) -> None:
-        super().__init__(entry, SWITCH_POWER, "Power")
+    def __init__(self, coordinator: DolphinCoordinator, entry: ConfigEntry) -> None:
+        CoordinatorEntity.__init__(self, coordinator)
+        _DolphinBaseSwitch.__init__(self, entry, SWITCH_POWER, "Power")
+
+    @property
+    def assumed_state(self) -> bool:
+        ps = (self.coordinator.data or {}).get("ps_state")
+        return ps is None
+
+    @property
+    def is_on(self) -> bool | None:
+        ps = (self.coordinator.data or {}).get("ps_state") if self.coordinator.data else None
+        inferred = ps_state_implies_power_on(ps)
+        if inferred is not None:
+            return inferred
+        return self._attr_is_on
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         await self._send(build_bt_command_19(BTCommandType.STARTUP))
