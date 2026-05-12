@@ -23,7 +23,6 @@ from .protocol import (
     BTCommandType,
     build_bt_command_19,
     build_joystick_packet,
-    build_short_cmd,
 )
 
 
@@ -120,7 +119,7 @@ class _DolphinButton(ButtonEntity):
 
 
 class DolphinShortCommandButton(_DolphinButton):
-    """3-byte BT command."""
+    """19-byte ``BTCommand.getBytes()`` (``BLEManager.writePacket`` style)."""
 
     def __init__(
         self, entry: ConfigEntry, key: str, title: str, cmd: BTCommandType
@@ -129,7 +128,7 @@ class DolphinShortCommandButton(_DolphinButton):
         self._cmd = cmd
 
     async def async_press(self) -> None:
-        await self._send(build_short_cmd(self._cmd))
+        await self._send(build_bt_command_19(self._cmd))
 
 
 class DolphinLedTestButton(_DolphinButton):

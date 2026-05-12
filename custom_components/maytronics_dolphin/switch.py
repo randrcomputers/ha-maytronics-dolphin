@@ -19,12 +19,7 @@ from .const import (
     DATA_BLE_SESSION,
     DOMAIN,
 )
-from .protocol import (
-    BTCommandType,
-    build_bt_command_19,
-    payload_shutdown_short,
-    payload_startup_short,
-)
+from .protocol import BTCommandType, build_bt_command_19
 
 SWITCH_POWER = "power"
 SWITCH_AUTOCLEAN = "autoclean"
@@ -81,18 +76,18 @@ class _DolphinBaseSwitch(SwitchEntity):
 
 
 class DolphinPowerSwitch(_DolphinBaseSwitch):
-    """3-byte startup/shutdown (matches HCI captures)."""
+    """19-byte ``Startup_dolphin`` / ``Shutdown_dolphin`` (``BLEManager.turnOn/OffRobot``)."""
 
     def __init__(self, entry: ConfigEntry) -> None:
         super().__init__(entry, SWITCH_POWER, "Power")
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        await self._send(payload_startup_short())
+        await self._send(build_bt_command_19(BTCommandType.STARTUP))
         self._attr_is_on = True
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        await self._send(payload_shutdown_short())
+        await self._send(build_bt_command_19(BTCommandType.SHUTDOWN))
         self._attr_is_on = False
         self.async_write_ha_state()
 

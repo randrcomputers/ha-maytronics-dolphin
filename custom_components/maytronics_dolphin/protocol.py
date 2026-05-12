@@ -1,4 +1,10 @@
-"""BT wire format: 3-byte short frames (CRC over SOP+cmd) and 19-byte BTCommand frames."""
+"""BT wire format: 3-byte short frames (CRC over SOP+cmd) and 19-byte BTCommand frames.
+
+MyDolphin ``BLEManager.writePacket`` always sends ``BTCommand.getBytes()`` (19 bytes)
+to ``BTCommand.UUID`` for ``turnOnRobot`` / ``turnOffRobot`` and simple commands
+(``Quite_RC_mode``, ``Home``, ``Ping``, etc.). The 3-byte ``build_short_frame`` helpers
+below are optional / HCI-sniff style only — they are **not** what the APK uses on FFF8.
+"""
 
 from __future__ import annotations
 
@@ -23,7 +29,7 @@ def crc_run(data: bytes, length: int) -> int:
 
 
 def build_short_frame(cmd: int) -> bytes:
-    """3-byte `[SOP, cmd, crc]` — matches periodic traffic in HCI captures."""
+    """3-byte ``[SOP, cmd, crc]`` — periodic / non-APK path; see module docstring."""
     buf = bytearray([SOP & 0xFF, cmd & 0xFF, 0])
     buf[2] = crc_run(bytes(buf[:2]), 2)
     return bytes(buf)
@@ -108,17 +114,17 @@ def build_bt_command_19(
 
 
 def payload_startup_short() -> bytes:
-    """Startup_dolphin (3-byte)."""
+    """3-byte startup (not ``BLEManager.turnOnRobot`` — use ``build_bt_command_19(STARTUP)``)."""
     return build_short_frame(CMD_STARTUP)
 
 
 def payload_shutdown_short() -> bytes:
-    """Shutdown_dolphin (3-byte)."""
+    """3-byte shutdown (not ``BLEManager.turnOffRobot`` — use ``build_bt_command_19(SHUTDOWN)``)."""
     return build_short_frame(CMD_SHUTDOWN)
 
 
 def build_short_cmd(cmd: BTCommandType) -> bytes:
-    """3-byte frame for simple `CommandType` (no extra payload bytes)."""
+    """3-byte frame for a ``CommandType`` code — not APK ``BTCommand.getBytes()``."""
     return build_short_frame(int(cmd))
 
 

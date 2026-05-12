@@ -38,19 +38,20 @@ HA only connects if it has **recently heard** your robot on Bluetooth (it keeps 
 4. **Settings → Devices & services → Add integration → Maytronics Dolphin (BLE)**
 5. Enter **MAC** and optional **name**.
 
-## Entities (v0.3.2)
+## Entities (v0.4.1)
 
 | Type | What it does |
 |------|----------------|
-| **Switch — Power** | 3‑byte **Startup** (`AB0790`) / **Shutdown** (`AB0648`) |
-| **Switch — Autoclean** | 19‑byte `Autoclean_Enable` ON/OFF |
-| **Button — Quit RC mode** | 3‑byte `Quite_RC_mode` |
-| **Button — Reset faults / Home / Reset dolphin / Reset filter / Ping** | Matching `BTCommand` short frames |
-| **Button — Wall sensor poll** | Same as app’s periodic `Wall_Sensor` poll (chatty) |
-| **Button — LED test** | `Leds` with value `0x01` (19‑byte) |
+| **Switch — Power** | 19-byte ``BTCommand`` **Startup_dolphin** / **Shutdown_dolphin** (same as ``BLEManager.turnOnRobot`` / ``turnOffRobot`` on FFF8) |
+| **Switch — Autoclean** | 19-byte ``Autoclean_Enable`` ON/OFF (``BLEManager.setAutocleanEnabled``) |
+| **Button — Quit RC / faults / Home / …** | 19-byte ``BTCommand`` for each opcode (``writePacket`` style), not 3-byte short frames |
+| **Button — Wall sensor poll** | 19-byte ``Wall_Sensor`` |
+| **Button — LED test** | ``Leds`` + value ``0x01`` |
 | **Number — Joystick X / Y** | −128…127; stored for send |
-| **Button — Send joystick** | 19‑byte `Joystick_cmd` using X/Y (faster post‑delay, like app joystick path) |
-| **Select — Card test type** | VDD…Servo calib (bytes 1–7) + **Run card test** button |
+| **Button — Send joystick** | ``BLEManager.sendJoystickCommand`` path (shorter post-delay) |
+| **Select — Card test type** | Card test sub-byte + **Run card test** (``BLEManager.runCardTest``) |
+
+**Clean mode (“normal”, floor only, etc.)** in the app is ``BLEManager.setCleanMode`` → ``ConfigParamsWrite(CommandType.Working_Clean_Mode)`` on **fffa** (not an extra FFF8 opcode). Not implemented in this integration yet.
 
 ## Not implemented yet (needs more decompile / testing)
 
