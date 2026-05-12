@@ -16,7 +16,6 @@ from .ble import _noop_notify, async_resolve_ble_device
 from .config_params import (
     PSState,
     build_config_params_read_request,
-    build_config_params_read_request_46,
     parse_config_params_ps_state,
 )
 from .const import (
@@ -32,7 +31,7 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 _INITIAL_CONNECT_DELAY_SEC = 12.0
-_PS_READ_PER_STRATEGY_TIMEOUT = 5.0
+_PS_READ_PER_STRATEGY_TIMEOUT = 3.5
 _PS_FAIL_LOG_INTERVAL_SEC = 300.0
 
 
@@ -130,6 +129,7 @@ class DolphinBleConnection:
         *,
         timeout: float,
         pre_write_delay: float,
+        write_with_response: bool = True,
     ) -> PSState | None:
         """Subscribe on ``notify_uuid``, write ``write_uuid``, return first parsed PS or timeout."""
         acc = bytearray()
@@ -145,7 +145,9 @@ class DolphinBleConnection:
         await client.start_notify(notify_uuid, _handler)
         try:
             await asyncio.sleep(pre_write_delay)
-            await client.write_gatt_char(write_uuid, payload, response=True)
+            await client.write_gatt_char(
+                write_uuid, payload, response=write_with_response
+            )
             return await asyncio.wait_for(fut, timeout=timeout)
         except asyncio.TimeoutError:
             return None
@@ -161,37 +163,41 @@ class DolphinBleConnection:
         timeout: float | None = None,
         pre_write_delay: float = 0.2,
     ) -> PSState | None:
-        """Read PS_State via ``ConfigParamsRead``-style notify.
+        """Read PS_State via ``ConfigParamsRead`` (MyDolphin 2.3.19: 3-byte ``getBytes()`` on ``fffa``/``fff9``).
 
-        Tries several (notify UUID, write UUID, payload length) combinations: some
-        CC254x / MyDolphin builds deliver the notify on ``fffa`` while the request
-        must be written to ``fff9``, and some use a 46-byte request buffer.
+        Notify stays on ``fffa``; some stacks expect the write on ``fff9`` instead.
+        Tries GATT write-with-response first, then without response.
         """
         per = timeout if timeout is not None else _PS_READ_PER_STRATEGY_TIMEOUT
-        strategies: list[tuple[str, str, bytes, str]] = [
+        req = build_config_params_read_request()
+        strategies: list[tuple[str, str, bytes, str, bool]] = [
             (
                 CONFIG_PARAMS_READ_UUID,
                 CONFIG_PARAMS_READ_UUID,
-                build_config_params_read_request(),
-                "notify=fffa write=fffa len=47",
+                req,
+                "notify=fffa write=fffa len=3 rsp=True",
+                True,
             ),
             (
                 CONFIG_PARAMS_READ_UUID,
                 CONFIG_PARAMS_WRITE_UUID,
-                build_config_params_read_request(),
-                "notify=fffa write=fff9 len=47",
+                req,
+                "notify=fffa write=fff9 len=3 rsp=True",
+                True,
             ),
             (
                 CONFIG_PARAMS_READ_UUID,
                 CONFIG_PARAMS_READ_UUID,
-                build_config_params_read_request_46(),
-                "notify=fffa write=fffa len=46",
+                req,
+                "notify=fffa write=fffa len=3 rsp=False",
+                False,
             ),
             (
                 CONFIG_PARAMS_READ_UUID,
                 CONFIG_PARAMS_WRITE_UUID,
-                build_config_params_read_request_46(),
-                "notify=fffa write=fff9 len=46",
+                req,
+                "notify=fffa write=fff9 len=3 rsp=False",
+                False,
             ),
         ]
         async with self._lock:
@@ -200,7 +206,7 @@ class DolphinBleConnection:
             except (BleakError, HomeAssistantError) as err:
                 _LOGGER.debug("PS_State read: could not connect: %s", err)
                 return None
-            for notify_u, write_u, payload, label in strategies:
+            for notify_u, write_u, payload, label, rsp in strategies:
                 try:
                     got = await self._read_ps_notify_once(
                         client,
@@ -209,6 +215,7 @@ class DolphinBleConnection:
                         payload,
                         timeout=per,
                         pre_write_delay=pre_write_delay,
+                        write_with_response=rsp,
                     )
                     if got is not None:
                         _LOGGER.debug("PS_State read ok (%s)", label)

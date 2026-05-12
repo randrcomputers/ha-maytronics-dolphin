@@ -1,9 +1,10 @@
 """BT wire format: 3-byte short frames (CRC over SOP+cmd) and 19-byte BTCommand frames.
 
-MyDolphin ``BLEManager.writePacket`` always sends ``BTCommand.getBytes()`` (19 bytes)
-to ``BTCommand.UUID`` for ``turnOnRobot`` / ``turnOffRobot`` and simple commands
-(``Quite_RC_mode``, ``Home``, ``Ping``, etc.). The 3-byte ``build_short_frame`` helpers
-below are optional / HCI-sniff style only — they are **not** what the APK uses on FFF8.
+MyDolphin ``BLEManager.writePacket`` sends ``BTCommand.getBytes()`` (19 bytes) to
+``BTCommand.UUID`` (``fff8``) for power / RC / ping / etc.
+
+``ConfigParamsRead.getBytes()`` (characteristic ``fffa``) uses the **same** 3-byte
+``DolphinData`` layout as ``build_short_frame`` — not 19-byte ``BTCommand`` frames.
 """
 
 from __future__ import annotations
@@ -29,7 +30,7 @@ def crc_run(data: bytes, length: int) -> int:
 
 
 def build_short_frame(cmd: int) -> bytes:
-    """3-byte ``[SOP, cmd, crc]`` — periodic / non-APK path; see module docstring."""
+    """3-byte ``[SOP, cmd, crc]`` (CRC over first two bytes) — matches ``ConfigParamsRead.getBytes()``."""
     buf = bytearray([SOP & 0xFF, cmd & 0xFF, 0])
     buf[2] = crc_run(bytes(buf[:2]), 2)
     return bytes(buf)

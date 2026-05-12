@@ -1,8 +1,13 @@
 """ConfigParamsRead / Write wire helpers (MyDolphin ``DolphinData`` on ``fff0`` service).
 
-JADX class UUIDs (swap‑fixed in ``const.py``): ``ConfigParamsRead`` → ``fffa``,
-``ConfigParamsWrite`` → ``fff9``. Response ``getAckDataLength()`` for read is 47 bytes;
-request buffer matches that layout with ``DolphinData``‑style CRC in the last byte.
+Characteristic UUIDs (swap‑fixed in ``const.py``): ``ConfigParamsRead`` → ``fffa``,
+``ConfigParamsWrite`` → ``fff9``.
+
+MyDolphin 2.3.19 (``classes2.dex``): ``ConfigParamsRead.getBytes()`` allocates **3**
+bytes, fills zeros, sets ``buf[0]=SOP``, ``buf[1]=CommandType.CODE``, then
+``DolphinData.updateCRC`` (CRC over ``length-1`` bytes → last byte). The read **ACK**
+payload length from ``getAckDataLength()`` is **47** bytes — that is the notify
+payload, not the outgoing write length.
 """
 
 from __future__ import annotations
@@ -11,11 +16,11 @@ import logging
 from enum import IntEnum
 
 from .const import SOP
-from .protocol import crc_run
+from .protocol import build_short_frame, crc_run
 
 _LOGGER = logging.getLogger(__name__)
 
-# ``com.maytronics.mydolphin.model.data.ConfigParamsRead.CommandType`` — PS_State (BidiOrder.NSM).
+# ``ConfigParamsRead$CommandType`` ``PS_State`` — wire ``CODE`` byte **13** (not Java switch index 11).
 CONFIG_PARAMS_CMD_PS_STATE = 13
 
 
@@ -30,21 +35,8 @@ class PSState(IntEnum):
 
 
 def build_config_params_read_request(command_code: int = CONFIG_PARAMS_CMD_PS_STATE) -> bytes:
-    """47-byte read request: ``[SOP, cmd, 0…0, CRC]`` (CRC over first 46 bytes)."""
-    buf = bytearray(47)
-    buf[0] = SOP & 0xFF
-    buf[1] = int(command_code) & 0xFF
-    buf[46] = crc_run(bytes(buf[:46]), 46)
-    return bytes(buf)
-
-
-def build_config_params_read_request_46(command_code: int = CONFIG_PARAMS_CMD_PS_STATE) -> bytes:
-    """46-byte variant (same layout as ``ConfigParamsWrite`` length in JADX)."""
-    buf = bytearray(46)
-    buf[0] = SOP & 0xFF
-    buf[1] = int(command_code) & 0xFF
-    buf[45] = crc_run(bytes(buf[:45]), 45)
-    return bytes(buf)
+    """Same on-air layout as APK ``ConfigParamsRead.getBytes()`` — ``[SOP, cmd, crc]``."""
+    return build_short_frame(int(command_code) & 0xFF)
 
 
 def _crc_ok_47(frame: bytes, start: int) -> bool:
@@ -55,7 +47,7 @@ def _crc_ok_47(frame: bytes, start: int) -> bool:
 
 
 def parse_config_params_ps_state(data: bytes) -> PSState | None:
-    """Minimal port of ``ConfigParamsRead.getAck`` for ``PS_State`` (cmd 13)."""
+    """Minimal port of ``ConfigParamsRead.getAck`` for ``PS_State`` (wire cmd **13**)."""
     if not data or len(data) < 4:
         return None
     i = 0
