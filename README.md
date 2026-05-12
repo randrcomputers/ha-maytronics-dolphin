@@ -28,7 +28,7 @@ HA only connects if it has **recently heard** your robot on Bluetooth (it keeps 
 1. **Settings → Devices & services → Bluetooth** — scroll the list. If your Dolphin **never** appears, HA cannot connect until it does (range, walls, water).
 2. **Close MyDolphin** on the phone and ensure the robot is **not** connected elsewhere — some units advertise rarely while another client holds GATT.
 3. **Bluetooth proxy** (ESPHome, Shelly, etc.) **near the pool** often works better than the HA server in the house.
-4. Use the **Address** in the device **tooltip** or Bluetooth device list, **not** the short **map label**. BLE often shows a **name** like `22554C074D50` (MAC digits without colons) while the **real connectable address** is different (e.g. `e0:ff:f1:41:12:61`). Put that **tooltip address** in the integration or HA will look up the wrong device. **v0.3.4+** normalizes MAC the same way as HA (lowercase); older builds uppercased the MAC and failed to find the device even when the Bluetooth map showed it.
+4. Use the **Address** in the device **tooltip** or Bluetooth device list, **not** the short **map label**. BLE often shows a **name** like `22554C074D50` (MAC digits without colons) while the **real connectable address** is different (e.g. `e0:ff:f1:41:12:61`). Put **either** value in the integration: **v0.3.5+** can resolve the on-air address when the config matches the advertised **name** (same 12 hex digits) **and** the MyDolphin **FFF0** service is present (prefers **Texas Instruments** manufacturer `0x000D` when several FFF0 devices exist). **v0.3.4** fixed lowercase MAC lookups for HA’s cache.
 
 ## Install (HACS)
 
