@@ -26,6 +26,9 @@ POLYNOMIAL = 0xD8  # Java (byte)-40
 CMD_STARTUP = 0x07  # Startup_dolphin
 CMD_SHUTDOWN = 0x06  # Shutdown_dolphin
 
+# Bluetooth SIG company identifier: Texas Instruments (Maytronics BLE module in captures).
+MANUFACTURER_ID_TEXAS_INSTRUMENTS = 13  # 0x000D
+
 DEFAULT_NAME = "Dolphin"
 
 # Runtime keys (hass.data[DOMAIN][entry_id])

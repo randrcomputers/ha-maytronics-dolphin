@@ -10,12 +10,18 @@ Unofficial integration for **Maytronics Dolphin** robots that use the **MyDolphi
 
 ## Bluetooth discovery (v0.3+)
 
-The integration declares a manifest matcher for the Maytronics **GATT service** UUID
-`0000fff0-0000-1000-8000-00805f9b34fb` (MyDolphin `CC2540_SERVICE_UUID`).
+The integration declares a **strict** Bluetooth matcher:
 
-When Home Assistant’s Bluetooth stack (adapter or **proxy**) sees that UUID in a **connectable** advertisement, HA can offer **Maytronics Dolphin (BLE)** on the integrations page — **MAC is filled automatically**.
+- **Service UUID** `0000fff0-0000-1000-8000-00805f9b34fb` (MyDolphin `CC2540_SERVICE_UUID`)
+- **Manufacturer ID** `13` (0x000D — **Texas Instruments**, the radio on Maytronics units in HCI captures)
 
-**Caveat:** some firmwares only expose `FFF0` after connection, or only in scan response. If discovery never triggers, use **manual setup** (MAC entry) once HA can see the device at all.
+**Why:** The 16‑bit UUID **0xFFF0** is used by many unrelated BLE products as a generic vendor slot. Matching **FFF0 alone** (v0.3.0) incorrectly offered **every** such device as a Dolphin — pool sensors, Shelly, etc. **v0.3.1** requires **TI + FFF0** together.
+
+If your robot uses a **non‑TI** module and discovery never appears, use **manual** MAC setup and open an issue with nRF advertisement details.
+
+### Clean up mistaken v0.3.0 entries
+
+**Settings → Devices & services → Maytronics Dolphin (BLE)** — remove config entries / devices that are **not** your pool cleaner (each bogus entry added ~15 entities). Keep only the real Dolphin (e.g. MAC `22:55:4C:…`).
 
 ## Troubleshooting: "not visible to Home Assistant"
 

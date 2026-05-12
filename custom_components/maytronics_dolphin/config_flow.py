@@ -12,7 +12,13 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import selector
 
-from .const import CONF_ADDRESS, CONF_NAME, DEFAULT_NAME, DOMAIN
+from .const import (
+    CONF_ADDRESS,
+    CONF_NAME,
+    DEFAULT_NAME,
+    DOMAIN,
+    MANUFACTURER_ID_TEXAS_INSTRUMENTS,
+)
 
 _MAC_RE = re.compile(r"^([0-9A-Fa-f]{2}:){5}([0-9A-Fa-f]{2})$")
 
@@ -25,7 +31,14 @@ class MaytronicsDolphinConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_bluetooth(
         self, discovery_info: BluetoothServiceInfoBleak
     ) -> FlowResult:
-        """Device discovered via Bluetooth (see manifest `bluetooth` matchers)."""
+        """Device discovered via Bluetooth (manifest requires TI + FFF0 service).
+
+        `service_uuid` 0xFFF0 alone matches many unrelated BLE gadgets; we require
+        Texas Instruments manufacturer id (0x000D) like the real Dolphin radio.
+        """
+        if discovery_info.manufacturer_id != MANUFACTURER_ID_TEXAS_INSTRUMENTS:
+            return self.async_abort(reason="not_maytronics_dolphin")
+
         address = discovery_info.address
         await self.async_set_unique_id(dr.format_mac(address))
         self._abort_if_unique_id_configured()
