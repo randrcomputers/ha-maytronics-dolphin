@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 
-from bleak import BleakClient
 from bleak.backends.device import BLEDevice
-from bleak.exc import BleakError
 from homeassistant.components import bluetooth
 from homeassistant.components.bluetooth import (
     BluetoothScanningMode,
@@ -103,21 +100,8 @@ def _ble_device_from_discovered_identity(hass: HomeAssistant, addr: str) -> BLED
     return best.device
 
 
-async def send_gatt_packet(
-    hass: HomeAssistant,
-    address: str,
-    payload: bytes,
-    char_uuid: str,
-    *,
-    pre_write_delay: float = 0.3,
-    post_write_delay: float = 0.3,
-) -> None:
-    """Connect, notify on `char_uuid`, wait, write with response, wait, disconnect.
-
-    Mirrors `BLEManager.writePacket` pacing. Joystick path in app uses ~50 ms;
-    pass smaller delays for that case.
-    """
-    # HA / BlueZ use lowercase MAC keys (same as `device_registry.format_mac`).
+async def async_resolve_ble_device(hass: HomeAssistant, address: str) -> BLEDevice:
+    """Resolve a Bleak BLEDevice from HA Bluetooth data (cache, scanners, identity, wait)."""
     addr = dr.format_mac(address.strip())
 
     ble_device = bluetooth.async_ble_device_from_address(hass, addr, connectable=True)
@@ -156,18 +140,4 @@ async def send_gatt_packet(
             ) from None
         ble_device = service_info.device
 
-    try:
-        async with BleakClient(ble_device, timeout=30.0) as client:
-            if not client.is_connected:
-                raise HomeAssistantError("Failed to connect over BLE")
-
-            await client.start_notify(char_uuid, _noop_notify)
-            await asyncio.sleep(pre_write_delay)
-            await client.write_gatt_char(char_uuid, payload, response=True)
-            await asyncio.sleep(post_write_delay)
-            try:
-                await client.stop_notify(char_uuid)
-            except BleakError:
-                _LOGGER.debug("stop_notify failed (ignored)", exc_info=True)
-    except BleakError as err:
-        raise HomeAssistantError(f"BLE error: {err}") from err
+    return ble_device

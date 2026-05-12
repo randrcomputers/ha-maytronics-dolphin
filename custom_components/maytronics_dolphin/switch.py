@@ -11,12 +11,12 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .ble import send_gatt_packet
+from .connection import DolphinBleConnection
 from .const import (
     COMMAND_CHAR_UUID,
     CONF_ADDRESS,
     CONF_NAME,
-    DATA_BLE_LOCK,
+    DATA_BLE_SESSION,
     DOMAIN,
 )
 from .protocol import (
@@ -74,11 +74,10 @@ class _DolphinBaseSwitch(SwitchEntity):
         return self._attr_is_on
 
     async def _send(self, payload: bytes) -> None:
-        lock = self.hass.data[DOMAIN][self._entry.entry_id][DATA_BLE_LOCK]
-        async with lock:
-            await send_gatt_packet(
-                self.hass, self._address, payload, COMMAND_CHAR_UUID
-            )
+        session: DolphinBleConnection = self.hass.data[DOMAIN][self._entry.entry_id][
+            DATA_BLE_SESSION
+        ]
+        await session.async_send_gatt_packet(payload, COMMAND_CHAR_UUID)
 
 
 class DolphinPowerSwitch(_DolphinBaseSwitch):

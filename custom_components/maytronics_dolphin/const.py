@@ -33,6 +33,6 @@ DEFAULT_NAME = "Dolphin"
 BLE_ADVERTISEMENT_WAIT_SECONDS = 25
 
 # Runtime keys (hass.data[DOMAIN][entry_id])
-DATA_BLE_LOCK = "ble_lock"
+DATA_BLE_SESSION = "ble_session"
 DATA_JOY = "joy"
 DATA_CARD_SUB = "card_sub"
