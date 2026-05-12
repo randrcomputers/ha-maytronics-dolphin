@@ -81,10 +81,6 @@ HA only connects if it has **recently heard** your robot on Bluetooth (it keeps 
 
 **v0.5.0+** aligns **read/write UUIDs with JADX** (`ConfigParamsRead` → `fffa`, `ConfigParamsWrite` → `fff9`), which differs from a naive dex string-pool ordering; if your build behaves differently, adjust `const.py` and open a PR.
 
-## Publishing to GitHub
-
-See **`PUBLISHING.md`** in this folder for `git` + `gh` steps (you must be logged in: `gh auth login`).
-
 ## Legal
 
 Maytronics and MyDolphin are trademarks of their owners. This project is independent community software.
