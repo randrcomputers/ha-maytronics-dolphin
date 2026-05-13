@@ -9,6 +9,7 @@ from typing import Any
 
 from bleak import BleakClient
 from bleak.exc import BleakError
+from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 
@@ -55,7 +56,7 @@ class DolphinBleConnection:
         self.hass = hass
         self.address = address
         self._lock = asyncio.Lock()
-        self._client: BleakClient | None = None
+        self._client: BleakClientWithServiceCache | None = None
 
     @property
     def is_connected(self) -> bool:
@@ -78,15 +79,19 @@ class DolphinBleConnection:
             _LOGGER.debug("disconnect raised BleakError (ignored)", exc_info=True)
         self._client = None
 
-    async def _ensure_connected_locked(self) -> BleakClient:
+    async def _ensure_connected_locked(self) -> BleakClientWithServiceCache:
         if self._client is not None and self._client.is_connected:
             return self._client
 
         await self._disconnect_locked()
 
         ble_device = await async_resolve_ble_device(self.hass, self.address)
-        client = BleakClient(ble_device, timeout=60.0)
-        await client.connect()
+        client = await establish_connection(
+            BleakClientWithServiceCache,
+            ble_device,
+            name=ble_device.name or self.address,
+            timeout=60.0,
+        )
         if not client.is_connected:
             raise HomeAssistantError("Failed to connect over BLE")
         self._client = client
