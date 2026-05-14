@@ -8,7 +8,6 @@ Unofficial integration for **Maytronics Dolphin** robots that use the **MyDolphi
 
 Add that repo under HACS → **Integrations** → **⋮** → **Custom repositories** (category **Integration**), then install **Maytronics Dolphin (BLE)**. This is not the default HACS store; anyone with the link can install the same way.
 
-Maintainers: set the GitHub **About** description and topic **`home-assistant`** so others can discover the repo — see **`PUBLISHING.md` §5**.
 
 ## Requirements
 
