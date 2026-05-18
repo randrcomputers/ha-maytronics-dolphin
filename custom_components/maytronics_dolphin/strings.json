@@ -16,5 +16,18 @@
     "abort": {
       "already_configured": "This device is already configured"
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Maytronics Dolphin options",
+        "description": "Tune BLE behavior for your setup. Defaults match earlier releases (90 s keepalive, 20 s state poll). Set a interval to 0 to disable that feature.",
+        "data": {
+          "ble_keepalive_seconds": "BLE session keepalive",
+          "state_poll_seconds": "State poll interval (PS_State)",
+          "reconnect_button_enabled": "Show Reconnect Bluetooth button"
+        }
+      }
+    }
   }
 }

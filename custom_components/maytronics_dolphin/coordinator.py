@@ -6,27 +6,33 @@ import logging
 from datetime import timedelta
 from typing import Any
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .config_params import PSState
 from .connection import DolphinBleConnection
-from .const import DOMAIN, DOLPHIN_STATE_POLL_INTERVAL_SEC
+from .const import DOMAIN, OPT_STATE_POLL_SEC
+from .options import get_integration_options
 
 _LOGGER = logging.getLogger(__name__)
-
-PS_POLL_INTERVAL = timedelta(seconds=DOLPHIN_STATE_POLL_INTERVAL_SEC)
-
 
 class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Periodic ``ConfigParamsRead`` (PS_State) + best-effort ``fffc``/``fffd`` reads."""
 
-    def __init__(self, hass: HomeAssistant, session: DolphinBleConnection) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        session: DolphinBleConnection,
+        entry: ConfigEntry,
+    ) -> None:
+        poll_sec = int(get_integration_options(entry)[OPT_STATE_POLL_SEC])
+        interval = None if poll_sec <= 0 else timedelta(seconds=poll_sec)
         super().__init__(
             hass,
             _LOGGER,
             name=DOMAIN,
-            update_interval=PS_POLL_INTERVAL,
+            update_interval=interval,
         )
         self._session = session
 

@@ -23,6 +23,11 @@ from .const import (
 )
 from .coordinator import DolphinCoordinator
 
+async def _async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload when options change (keepalive / poll / buttons)."""
+    await hass.config_entries.async_reload(entry.entry_id)
+
+
 PLATFORMS: list[Platform] = [
     Platform.BINARY_SENSOR,
     Platform.SENSOR,
@@ -37,7 +42,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up from a config entry."""
     hass.data.setdefault(DOMAIN, {})
     session = DolphinBleConnection(hass, entry.data[CONF_ADDRESS])
-    coordinator = DolphinCoordinator(hass, session)
+    coordinator = DolphinCoordinator(hass, session, entry)
+    entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     hass.data[DOMAIN][entry.entry_id] = {
         DATA_BLE_SESSION: session,
         DATA_COORDINATOR: coordinator,

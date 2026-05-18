@@ -8,6 +8,7 @@ Unofficial integration for **Maytronics Dolphin** robots that use the **MyDolphi
 
 Add that repo under HACS → **Integrations** → **⋮** → **Custom repositories** (category **Integration**), then install **Maytronics Dolphin (BLE)**. This is not the default HACS store; anyone with the link can install the same way.
 
+Maintainers: set the GitHub **About** description and topic **`home-assistant`** so others can discover the repo — see **`PUBLISHING.md` §5**.
 
 ## Requirements
 
@@ -39,7 +40,8 @@ HA only connects if it has **recently heard** your robot on Bluetooth (it keeps 
 
 ### BLE link vs MyDolphin app
 
-- HA keeps a **single BLE GATT session** to the robot (same pattern as other integrations: connect, run commands, leave the client open, **reconnect** if the stack drops the link). A background task also **nudges reconnect every ~90s** if the link went idle.
+- HA keeps a **single BLE GATT session** to the robot (same pattern as other integrations: connect, run commands, leave the client open, **reconnect** if the stack drops the link). A background task also **nudges reconnect** on a schedule (default **90 s**; configurable under **Configure**).
+- **v0.6.6+** — **Settings → Maytronics Dolphin (BLE) → Configure**: **BLE keepalive** (0 = off), **state poll interval** (0 = no automatic poll; default **20 s**), optional **Reconnect Bluetooth** button.
 - **Only one central** should use the robot at a time. If the **MyDolphin** app is connected, HA may not get notifies or may see timeouts — close the app (or disconnect in app) when testing HA state sensors.
 - **v0.6.3+** reads **PS_State** with the same **3-byte** ``ConfigParamsRead`` frame as the MyDolphin app (notify ``fffa``, write ``fffa`` or ``fff9``). If **Cleaner state** stays ``unknown``, enable **debug** for ``custom_components.maytronics_dolphin`` or capture HCI while the app reads status.
 

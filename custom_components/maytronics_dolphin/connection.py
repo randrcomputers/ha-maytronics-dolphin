@@ -20,14 +20,15 @@ from .config_params import (
     parse_config_params_ps_state,
 )
 from .const import (
-    BLE_SESSION_KEEPALIVE_INTERVAL_SEC,
     CONFIG_PARAMS_READ_UUID,
     CONFIG_PARAMS_WRITE_UUID,
     DATA_BLE_SESSION,
     DOMAIN,
     GET_STATUS_READ_UUID,
     INTERNAL_PARAMS_READ_UUID,
+    OPT_BLE_KEEPALIVE_SEC,
 )
+from .options import get_integration_options
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -299,7 +300,16 @@ async def async_ble_session_keepalive(hass: HomeAssistant, entry_id: str) -> Non
     """Periodically ensure BLE session is up (idle links sometimes drop)."""
     try:
         while True:
-            await asyncio.sleep(BLE_SESSION_KEEPALIVE_INTERVAL_SEC)
+            entry = hass.config_entries.async_get_entry(entry_id)
+            interval = (
+                int(get_integration_options(entry)[OPT_BLE_KEEPALIVE_SEC])
+                if entry
+                else 0
+            )
+            if interval <= 0:
+                await asyncio.sleep(60)
+                continue
+            await asyncio.sleep(interval)
             domain_data = hass.data.get(DOMAIN, {})
             entry_data = domain_data.get(entry_id)
             if not entry_data:

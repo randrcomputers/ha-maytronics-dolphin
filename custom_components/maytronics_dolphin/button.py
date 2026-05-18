@@ -16,9 +16,12 @@ from .const import (
     CONF_NAME,
     DATA_BLE_SESSION,
     DATA_CARD_SUB,
+    DATA_COORDINATOR,
     DATA_JOY,
     DOMAIN,
+    OPT_RECONNECT_BUTTON,
 )
+from .options import get_integration_options
 from .protocol import (
     BTCommandType,
     build_bt_command_19,
@@ -79,6 +82,8 @@ async def async_setup_entry(
         DolphinJoystickSendButton(entry),
         DolphinCardTestRunButton(entry),
     ]
+    if get_integration_options(entry)[OPT_RECONNECT_BUTTON]:
+        entities.append(DolphinBleReconnectButton(entry))
     async_add_entities(entities, update_before_add=False)
 
 
@@ -164,3 +169,19 @@ class DolphinCardTestRunButton(_DolphinButton):
         await self._send(
             build_bt_command_19(BTCommandType.CARD_TEST, card_subcommand=sub)
         )
+
+
+class DolphinBleReconnectButton(_DolphinButton):
+    """Disconnect and reconnect BLE, then refresh state poll."""
+
+    def __init__(self, entry: ConfigEntry) -> None:
+        super().__init__(entry, "ble_reconnect", "Reconnect Bluetooth")
+        self._attr_icon = "mdi:bluetooth-connect"
+
+    async def async_press(self) -> None:
+        entry_data = self.hass.data[DOMAIN][self._entry.entry_id]
+        session: DolphinBleConnection = entry_data[DATA_BLE_SESSION]
+        await session.async_reconnect()
+        coord = entry_data.get(DATA_COORDINATOR)
+        if coord is not None:
+            await coord.async_request_refresh()

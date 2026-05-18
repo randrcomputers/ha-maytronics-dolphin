@@ -39,6 +39,11 @@ BLE_SESSION_KEEPALIVE_INTERVAL_SEC = 90
 # Coordinator: PS_State + status probe interval while integration is loaded.
 DOLPHIN_STATE_POLL_INTERVAL_SEC = 20
 
+# Config-entry options (Settings → integration → Configure).
+OPT_BLE_KEEPALIVE_SEC = "ble_keepalive_seconds"
+OPT_STATE_POLL_SEC = "state_poll_seconds"
+OPT_RECONNECT_BUTTON = "reconnect_button_enabled"
+
 # Runtime keys (hass.data[DOMAIN][entry_id])
 DATA_BLE_SESSION = "ble_session"
 DATA_COORDINATOR = "coordinator"
