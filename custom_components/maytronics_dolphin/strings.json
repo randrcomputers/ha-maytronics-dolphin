@@ -1,0 +1,34 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Maytronics Dolphin (BLE)",
+        "description": "Enter the Bluetooth MAC address of your Dolphin robot (as shown in the Bluetooth integration or nRF Connect).",
+        "data": {
+          "address": "Bluetooth MAC address",
+          "name": "Device name (optional)"
+        }
+      }
+    },
+    "error": {
+      "invalid_mac": "Invalid MAC address (use format AA:BB:CC:DD:EE:FF)"
+    },
+    "abort": {
+      "already_configured": "This device is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Maytronics Dolphin options",
+        "description": "HA connects only for each command/poll, then disconnects so the robot is not held on Bluetooth. If the unit freezes with the BT light on, use Release Bluetooth or power-cycle once, then try these settings.",
+        "data": {
+          "ble_keepalive_seconds": "Periodic BLE release (disconnect if connected)",
+          "state_poll_seconds": "State poll interval (PS_State)",
+          "reconnect_button_enabled": "Show Release Bluetooth button",
+          "diagnostic_probe_enabled": "Diagnostic fffc/fffd reads during poll"
+        }
+      }
+    }
+  }
+}
