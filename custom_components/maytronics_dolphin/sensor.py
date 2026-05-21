@@ -12,7 +12,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .config_params import CleanMode, PSState, clean_mode_to_str, ps_state_to_str
-from .status_params import CleaningSurface
+from .status_params import CleaningSurface, WorkingStatus
 from .const import CONF_ADDRESS, CONF_NAME, DATA_COORDINATOR, DOMAIN
 from .coordinator import DolphinCoordinator
 
@@ -31,6 +31,7 @@ async def async_setup_entry(
             DolphinCleanerStateSensor(coordinator, entry),
             DolphinCleanProgramSensor(coordinator, entry),
             DolphinCleaningSurfaceSensor(coordinator, entry),
+            DolphinWorkingStatusSensor(coordinator, entry),
             DolphinStatusRawSensor(coordinator, entry, "fffc"),
             DolphinStatusRawSensor(coordinator, entry, "fffd"),
         ],
@@ -104,6 +105,26 @@ class DolphinCleanProgramSensor(_DolphinDiagSensorBase):
         data = self.coordinator.data
         mode: CleanMode | None = data.get("clean_mode") if data else None
         return clean_mode_to_str(mode)
+
+
+class DolphinWorkingStatusSensor(_DolphinDiagSensorBase):
+    """``GetStatusRead$WorkingStatus`` — at_work vs finished (for pool card / automations)."""
+
+    def __init__(self, coordinator: DolphinCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(
+            coordinator,
+            entry,
+            key="working_status",
+            name="Working status",
+        )
+
+    @property
+    def native_value(self) -> str | None:
+        data = self.coordinator.data
+        working: WorkingStatus | None = data.get("working_status") if data else None
+        if working is None:
+            return "unknown"
+        return str(working)
 
 
 class DolphinCleaningSurfaceSensor(_DolphinDiagSensorBase):

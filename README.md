@@ -74,6 +74,9 @@ All entities are created on one **device** per configured robot.
 |--------|------|---------|
 | **Power** | Switch | Turn robot on (**Startup**) / off (**Shutdown**) via GATT `fff8` |
 | **Cleaner state** | Sensor | Text status from **PS_State** poll |
+| **Clean program** | Sensor | Selected mode from **Working_Clean_Mode** (`regular`, `ultraclean`, `floor_only`*, `waterline`, …) |
+| **Cleaning surface** | Sensor | Best-effort **floor** / **wall** / **waterline** while running (see below) |
+| **Working status** | Sensor | `at_work`, `finished`, `fault`, or `unknown` from **GetStatusRead** (for pool card / automations) |
 | **Cleaning active** | Binary sensor | On when state is anything except `off` |
 | **Autoclean** | Switch | Enable/disable autoclean command (not synced from robot state) |
 
@@ -108,6 +111,24 @@ Understanding this avoids “wrong” dashboard readings:
 
 4. **Cleaning active**  
    On for `hold`, `programming`, and `self_test` as well as `on` — not only “actively cleaning the pool.”
+
+5. **Clean program**  
+   The **program you selected** in the app (e.g. `regular`, `ultraclean`, `waterline`) — **not** the same as live surface position.
+
+6. **Cleaning surface** (v0.7.2+)  
+   While the robot is **on** (PS_State not `off`), the integration also reads **InternalParamsRead** (`fffd`, 132-byte block) and infers surface:
+
+   | Value | Meaning |
+   |-------|---------|
+   | `floor` | Floor-only program (APK marker: climb byte **234** + clean byte **1**) or regular/fast-style programs |
+   | `waterline` | Waterline program |
+   | `wall` | **Experimental** — ultraclean + internal **phase byte** = 1 (offset 30 in APK layout; confirm on your unit via entity attributes) |
+   | `unknown` | Ultraclean or other modes where live surface is not decoded yet |
+   | `unavailable` | Robot off / no internal read |
+
+   The MyDolphin app does **not** expose a dedicated “on wall now” label in BLE; wall/floor appears mainly as **fault** text (“Wall/floor sensor”). If **Cleaning surface** stays `unknown` during ultraclean, check attributes **`phase_byte`** / **`motor_aux_byte`** in Developer tools and open an issue with those values from floor vs wall.
+
+\* In the APK, `floor_only` shares wire code **1** with `regular`; **Cleaning surface** uses the internal **234** marker to detect floor-only anyway.
 
 **Card shows “Unknown”** → **Cleaner state** is `unknown` (HA lost a good status read). That does **not** always mean the robot is locked up. Check the physical unit: still running? BT LED stuck on? Responds to **Power**?
 
