@@ -10,7 +10,8 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .config_params import PSState
+from .config_params import CleanMode, PSState
+from .status_params import CleaningSurface, InternalParamsSnapshot, WorkingStatus
 from .connection import DolphinBleConnection
 from .const import DOMAIN, OPT_STATE_POLL_SEC
 from .options import get_integration_options
@@ -39,13 +40,25 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _async_update_data(self) -> dict[str, Any]:
         prev = self.data or {}
         prev_ps: PSState | None = prev.get("ps_state")
+        prev_clean: CleanMode | None = prev.get("clean_mode")
+        prev_surface: CleaningSurface | None = prev.get("cleaning_surface")
+        prev_working: WorkingStatus | None = prev.get("working_status")
+        prev_internal: InternalParamsSnapshot | None = prev.get("internal_snapshot")
         prev_fffc = prev.get("status_fffc_hex")
         prev_fffd = prev.get("internal_fffd_hex")
         try:
-            ps, fffc_raw, fffd_raw = await self._session.async_poll_robot_state()
+            ps, clean_mode, surface, working, internal, fffc_raw, fffd_raw = (
+                await self._session.async_poll_robot_state()
+            )
             return {
                 "ps_state": ps,
                 "ps_poll_ok": ps is not None,
+                "clean_mode": clean_mode,
+                "clean_mode_poll_ok": clean_mode is not None,
+                "cleaning_surface": surface,
+                "internal_poll_ok": internal is not None,
+                "working_status": working,
+                "internal_snapshot": internal,
                 "status_fffc_hex": fffc_raw.hex() if fffc_raw else prev_fffc,
                 "internal_fffd_hex": fffd_raw.hex() if fffd_raw else prev_fffd,
             }
@@ -54,6 +67,12 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return {
                 "ps_state": prev_ps,
                 "ps_poll_ok": False,
+                "clean_mode": prev_clean,
+                "clean_mode_poll_ok": False,
+                "cleaning_surface": prev_surface,
+                "internal_poll_ok": False,
+                "working_status": prev_working,
+                "internal_snapshot": prev_internal,
                 "status_fffc_hex": prev_fffc,
                 "internal_fffd_hex": prev_fffd,
             }

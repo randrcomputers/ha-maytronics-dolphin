@@ -9,7 +9,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Any
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 from bleak import BleakClient
 from bleak.exc import BleakError
@@ -19,10 +20,16 @@ from homeassistant.exceptions import HomeAssistantError
 
 from .ble import _noop_notify, async_resolve_ble_device
 from .config_params import (
+    CONFIG_PARAMS_CMD_PS_STATE,
+    CONFIG_PARAMS_CMD_WORKING_CLEAN_MODE,
+    CleanMode,
     PSState,
     build_config_params_read_request,
+    parse_config_params_clean_mode,
     parse_config_params_ps_state,
 )
+
+_T = TypeVar("_T")
 from .const import (
     CONFIG_PARAMS_READ_UUID,
     CONFIG_PARAMS_WRITE_UUID,
@@ -32,6 +39,16 @@ from .const import (
     INTERNAL_PARAMS_READ_UUID,
     OPT_BLE_KEEPALIVE_SEC,
     OPT_DIAGNOSTIC_PROBE,
+)
+from .status_params import (
+    CleaningSurface,
+    InternalParamsSnapshot,
+    WorkingStatus,
+    build_get_status_read_request,
+    build_internal_params_read_request,
+    infer_cleaning_surface,
+    parse_get_status_working,
+    parse_internal_params_snapshot,
 )
 from .options import get_integration_options
 
@@ -154,24 +171,25 @@ class DolphinBleConnection:
             finally:
                 await self._disconnect_locked()
 
-    async def _read_ps_notify_once(
+    async def _read_config_params_notify_once(
         self,
         client: BleakClient,
         notify_uuid: str,
         write_uuid: str,
         payload: bytes,
+        parser: Callable[[bytes], _T | None],
         *,
         timeout: float,
         pre_write_delay: float,
         write_with_response: bool = True,
-    ) -> PSState | None:
+    ) -> _T | None:
         acc = bytearray()
         loop = asyncio.get_running_loop()
-        fut: asyncio.Future[PSState] = loop.create_future()
+        fut: asyncio.Future[_T] = loop.create_future()
 
         def _handler(_sender: Any, data: bytearray) -> None:
             acc.extend(data)
-            parsed = parse_config_params_ps_state(bytes(acc))
+            parsed = parser(bytes(acc))
             if parsed is not None and not fut.done():
                 fut.set_result(parsed)
 
@@ -213,8 +231,10 @@ class DolphinBleConnection:
             _LOGGER.debug("GATT read fffd failed", exc_info=True)
         return (ffc, ffd)
 
-    def _ps_strategies(self) -> list[tuple[str, str, bytes, str, bool]]:
-        req = build_config_params_read_request()
+    def _config_params_strategies(
+        self, command_code: int
+    ) -> list[tuple[str, str, bytes, str, bool]]:
+        req = build_config_params_read_request(command_code)
         all_s: list[tuple[str, str, bytes, str, bool]] = [
             (
                 CONFIG_PARAMS_READ_UUID,
@@ -247,6 +267,50 @@ class DolphinBleConnection:
         ]
         return all_s[:_PS_MAX_STRATEGIES]
 
+    async def _read_config_params_locked(
+        self,
+        client: BleakClient,
+        command_code: int,
+        parser: Callable[[bytes], _T | None],
+        log_label: str,
+        *,
+        timeout: float | None = None,
+        pre_write_delay: float = 0.2,
+        warn_on_fail: bool = True,
+    ) -> _T | None:
+        per = timeout if timeout is not None else _PS_READ_PER_STRATEGY_TIMEOUT
+        for notify_u, write_u, payload, label, rsp in self._config_params_strategies(
+            command_code
+        ):
+            try:
+                got = await self._read_config_params_notify_once(
+                    client,
+                    notify_u,
+                    write_u,
+                    payload,
+                    parser,
+                    timeout=per,
+                    pre_write_delay=pre_write_delay,
+                    write_with_response=rsp,
+                )
+                if got is not None:
+                    _LOGGER.debug("%s read ok (%s)", log_label, label)
+                    return got
+            except BleakError as err:
+                _LOGGER.debug(
+                    "%s strategy %s BLE error: %s", log_label, label, err, exc_info=True
+                )
+                return None
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.debug(
+                    "%s strategy %s failed: %s", log_label, label, err, exc_info=True
+                )
+        if warn_on_fail:
+            _throttled_ps_fail_warning(
+                f"Maytronics Dolphin: {log_label} read failed (other BLE commands may still work)."
+            )
+        return None
+
     async def _read_ps_state_locked(
         self,
         client: BleakClient,
@@ -254,51 +318,139 @@ class DolphinBleConnection:
         timeout: float | None = None,
         pre_write_delay: float = 0.2,
     ) -> PSState | None:
+        return await self._read_config_params_locked(
+            client,
+            CONFIG_PARAMS_CMD_PS_STATE,
+            parse_config_params_ps_state,
+            "PS_State",
+            timeout=timeout,
+            pre_write_delay=pre_write_delay,
+        )
+
+    async def _read_clean_mode_locked(
+        self,
+        client: BleakClient,
+        *,
+        timeout: float | None = None,
+        pre_write_delay: float = 0.2,
+    ) -> CleanMode | None:
+        return await self._read_config_params_locked(
+            client,
+            CONFIG_PARAMS_CMD_WORKING_CLEAN_MODE,
+            parse_config_params_clean_mode,
+            "Working_Clean_Mode",
+            timeout=timeout,
+            pre_write_delay=pre_write_delay,
+            warn_on_fail=False,
+        )
+
+    async def _read_gatt_notify_locked(
+        self,
+        client: BleakClient,
+        notify_uuid: str,
+        write_uuid: str,
+        payload: bytes,
+        parser: Callable[[bytes], _T | None],
+        log_label: str,
+        *,
+        timeout: float | None = None,
+        pre_write_delay: float = 0.2,
+    ) -> _T | None:
         per = timeout if timeout is not None else _PS_READ_PER_STRATEGY_TIMEOUT
-        for notify_u, write_u, payload, label, rsp in self._ps_strategies():
+        strategies = (
+            (notify_uuid, notify_uuid, True),
+            (notify_uuid, CONFIG_PARAMS_WRITE_UUID, True),
+            (notify_uuid, notify_uuid, False),
+        )
+        for notify_u, write_u, rsp in strategies:
             try:
-                got = await self._read_ps_notify_once(
+                got = await self._read_config_params_notify_once(
                     client,
                     notify_u,
                     write_u,
                     payload,
+                    parser,
                     timeout=per,
                     pre_write_delay=pre_write_delay,
                     write_with_response=rsp,
                 )
                 if got is not None:
-                    _LOGGER.debug("PS_State read ok (%s)", label)
+                    _LOGGER.debug("%s read ok (notify=%s write=%s)", log_label, notify_u, write_u)
                     return got
             except BleakError as err:
-                _LOGGER.debug(
-                    "PS_State strategy %s BLE error: %s", label, err, exc_info=True
-                )
+                _LOGGER.debug("%s BLE error: %s", log_label, err, exc_info=True)
                 return None
             except Exception as err:  # noqa: BLE001
-                _LOGGER.debug(
-                    "PS_State strategy %s failed: %s", label, err, exc_info=True
-                )
-        _throttled_ps_fail_warning(
-            "Maytronics Dolphin: PS_State read failed (power/FFF8 commands may still work)."
-        )
+                _LOGGER.debug("%s failed: %s", log_label, err, exc_info=True)
         return None
+
+    async def _read_internal_params_locked(
+        self,
+        client: BleakClient,
+    ) -> InternalParamsSnapshot | None:
+        snap = await self._read_gatt_notify_locked(
+            client,
+            INTERNAL_PARAMS_READ_UUID,
+            INTERNAL_PARAMS_READ_UUID,
+            build_internal_params_read_request(),
+            parse_internal_params_snapshot,
+            "InternalParamsRead",
+        )
+        if snap:
+            _LOGGER.debug(
+                "InternalParams: clean=%s climb=%s phase=%s motor=%s",
+                snap.clean_mode_byte,
+                snap.climb_every,
+                snap.phase_byte,
+                snap.motor_aux,
+            )
+        return snap
+
+    async def _read_get_status_locked(
+        self, client: BleakClient
+    ) -> WorkingStatus | None:
+        return await self._read_gatt_notify_locked(
+            client,
+            GET_STATUS_READ_UUID,
+            GET_STATUS_READ_UUID,
+            build_get_status_read_request(),
+            parse_get_status_working,
+            "GetStatusRead",
+        )
 
     async def async_poll_robot_state(
         self,
-    ) -> tuple[PSState | None, bytes | None, bytes | None]:
+    ) -> tuple[
+        PSState | None,
+        CleanMode | None,
+        CleaningSurface | None,
+        WorkingStatus | None,
+        InternalParamsSnapshot | None,
+        bytes | None,
+        bytes | None,
+    ]:
         include_probe = bool(self._options().get(OPT_DIAGNOSTIC_PROBE, False))
         async with self._lock:
             try:
                 client = await self._ensure_connected_locked()
             except (BleakError, HomeAssistantError) as err:
                 _LOGGER.debug("poll: could not connect: %s", err)
-                return (None, None, None)
+                return (None, None, None, None, None, None, None)
             try:
                 ps = await self._read_ps_state_locked(client)
+                clean_mode = await self._read_clean_mode_locked(client)
+                internal: InternalParamsSnapshot | None = None
+                working: WorkingStatus | None = None
+                if ps is not None and ps != PSState.OFF:
+                    internal = await self._read_internal_params_locked(client)
+                    working = await self._read_get_status_locked(client)
+                surface = infer_cleaning_surface(
+                    ps, clean_mode, internal, working=working
+                )
                 ffc, ffd = (None, None)
                 if include_probe:
                     ffc, ffd = await self._read_status_probe_locked(client)
-                return (ps, ffc, ffd)
+                return (ps, clean_mode, surface, working, internal, ffc, ffd)
             finally:
                 await self._disconnect_locked()
 
