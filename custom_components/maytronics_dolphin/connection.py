@@ -49,6 +49,7 @@ from .status_params import (
     infer_cleaning_surface,
     parse_get_status_working,
     parse_internal_params_snapshot,
+    resolve_working_status,
 )
 from .options import get_integration_options
 
@@ -409,7 +410,7 @@ class DolphinBleConnection:
     async def _read_get_status_locked(
         self, client: BleakClient
     ) -> WorkingStatus | None:
-        return await self._read_gatt_notify_locked(
+        working = await self._read_gatt_notify_locked(
             client,
             GET_STATUS_READ_UUID,
             GET_STATUS_READ_UUID,
@@ -417,6 +418,18 @@ class DolphinBleConnection:
             parse_get_status_working,
             "GetStatusRead",
         )
+        if working is not None:
+            return working
+        try:
+            raw = await asyncio.wait_for(
+                client.read_gatt_char(GET_STATUS_READ_UUID),
+                timeout=_GATT_READ_PROBE_TIMEOUT,
+            )
+            if raw:
+                return parse_get_status_working(bytes(raw))
+        except (BleakError, asyncio.TimeoutError):
+            _LOGGER.debug("GetStatusRead plain GATT read failed", exc_info=True)
+        return None
 
     async def async_poll_robot_state(
         self,
@@ -443,7 +456,10 @@ class DolphinBleConnection:
                 working: WorkingStatus | None = None
                 if ps is not None and ps != PSState.OFF:
                     internal = await self._read_internal_params_locked(client)
-                    working = await self._read_get_status_locked(client)
+                    gatt_working = await self._read_get_status_locked(client)
+                    working = resolve_working_status(ps, gatt_working, internal)
+                else:
+                    working = None
                 surface = infer_cleaning_surface(
                     ps, clean_mode, internal, working=working
                 )

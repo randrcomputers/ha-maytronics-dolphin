@@ -116,6 +116,30 @@ def is_floor_only_marker(snap: InternalParamsSnapshot | None) -> bool:
     )
 
 
+def resolve_working_status(
+    ps: PSState | None,
+    gatt: WorkingStatus | None,
+    internal: InternalParamsSnapshot | None,
+) -> WorkingStatus | None:
+    """Prefer ``GetStatusRead``; infer from PS + internal bytes when fffc ack is missing."""
+    if gatt is not None and gatt != WorkingStatus.UNKNOWN:
+        return gatt
+    if ps is None or ps == PSState.OFF:
+        return None
+    if ps == PSState.HOLD:
+        return WorkingStatus.FINISHED
+    if ps == PSState.ON and internal is not None:
+        if internal.dolphin_error != 0:
+            return WorkingStatus.FAULT
+        # Heuristic for models that never return a parseable GetStatusRead (e.g. some Triton).
+        if internal.motor_aux > 0 or internal.phase_byte in (1, 0x01):
+            return WorkingStatus.AT_WORK
+        return WorkingStatus.FINISHED
+    if gatt == WorkingStatus.UNKNOWN:
+        return WorkingStatus.UNKNOWN
+    return None
+
+
 def parse_get_status_working(data: bytes) -> WorkingStatus | None:
     """``GetStatusRead.getAck``: filter @+3, working @+4 when ``err==0``."""
     i = 0
