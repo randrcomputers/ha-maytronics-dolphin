@@ -21,9 +21,10 @@
     "step": {
       "init": {
         "title": "Maytronics Dolphin options",
-        "description": "HA connects only for each command/poll, then disconnects so the robot is not held on Bluetooth. If the unit freezes with the BT light on, use Release Bluetooth or power-cycle once, then try these settings.",
+        "description": "By default HA connects for each poll/command, then disconnects (recommended). Enable persistent session only to test an always-on BLE link — may wedge the robot (BT LED on). Use Release Bluetooth or power-cycle if that happens.",
         "data": {
-          "ble_keepalive_seconds": "Periodic BLE release (disconnect if connected)",
+          "ble_persistent_session_enabled": "Persistent BLE session (advanced, experimental)",
+          "ble_keepalive_seconds": "Periodic BLE release (ignored when persistent session is on)",
           "state_poll_seconds": "State poll interval (PS_State)",
           "reconnect_button_enabled": "Show Release Bluetooth button",
           "diagnostic_probe_enabled": "Diagnostic fffc/fffd reads during poll"

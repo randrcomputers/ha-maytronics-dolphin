@@ -41,6 +41,7 @@ DOLPHIN_STATE_POLL_INTERVAL_SEC = 45
 
 # Config-entry options (Settings → integration → Configure).
 OPT_BLE_KEEPALIVE_SEC = "ble_keepalive_seconds"
+OPT_BLE_PERSISTENT_SESSION = "ble_persistent_session_enabled"
 OPT_STATE_POLL_SEC = "state_poll_seconds"
 OPT_RECONNECT_BUTTON = "reconnect_button_enabled"
 OPT_DIAGNOSTIC_PROBE = "diagnostic_probe_enabled"

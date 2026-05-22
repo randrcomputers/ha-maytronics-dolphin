@@ -38,6 +38,7 @@ from .const import (
     GET_STATUS_READ_UUID,
     INTERNAL_PARAMS_READ_UUID,
     OPT_BLE_KEEPALIVE_SEC,
+    OPT_BLE_PERSISTENT_SESSION,
     OPT_DIAGNOSTIC_PROBE,
 )
 from .status_params import (
@@ -98,6 +99,14 @@ class DolphinBleConnection:
             return {}
         return get_integration_options(entry)
 
+    def _persistent_session(self) -> bool:
+        return bool(self._options().get(OPT_BLE_PERSISTENT_SESSION))
+
+    async def _release_after_operation_locked(self, *, force: bool = False) -> None:
+        """Disconnect after an operation unless persistent session is enabled."""
+        if force or not self._persistent_session():
+            await self._disconnect_locked()
+
     async def async_disconnect(self) -> None:
         self._shutting_down = True
         async with self._lock:
@@ -132,9 +141,11 @@ class DolphinBleConnection:
         if not client.is_connected:
             raise HomeAssistantError("Failed to connect over BLE")
         self._client = client
+        mode = "persistent" if self._persistent_session() else "ephemeral"
         _LOGGER.debug(
-            "Maytronics Dolphin: BLE connected (%s)",
+            "Maytronics Dolphin: BLE connected (%s, %s)",
             ble_device.address,
+            mode,
         )
         return self._client
 
@@ -168,9 +179,10 @@ class DolphinBleConnection:
                 except BleakError:
                     _LOGGER.debug("stop_notify failed (ignored)", exc_info=True)
             except BleakError as err:
+                await self._release_after_operation_locked(force=True)
                 raise HomeAssistantError(f"BLE error: {err}") from err
             finally:
-                await self._disconnect_locked()
+                await self._release_after_operation_locked()
 
     async def _read_config_params_notify_once(
         self,
@@ -448,6 +460,7 @@ class DolphinBleConnection:
                 client = await self._ensure_connected_locked()
             except (BleakError, HomeAssistantError) as err:
                 _LOGGER.debug("poll: could not connect: %s", err)
+                await self._release_after_operation_locked(force=True)
                 return (None, None, None, None, None, None, None)
             try:
                 ps = await self._read_ps_state_locked(client)
@@ -467,8 +480,11 @@ class DolphinBleConnection:
                 if include_probe:
                     ffc, ffd = await self._read_status_probe_locked(client)
                 return (ps, clean_mode, surface, working, internal, ffc, ffd)
+            except BleakError:
+                await self._release_after_operation_locked(force=True)
+                raise
             finally:
-                await self._disconnect_locked()
+                await self._release_after_operation_locked()
 
     async def async_read_ps_state(
         self,
@@ -481,13 +497,17 @@ class DolphinBleConnection:
                 client = await self._ensure_connected_locked()
             except (BleakError, HomeAssistantError) as err:
                 _LOGGER.debug("PS_State read: could not connect: %s", err)
+                await self._release_after_operation_locked(force=True)
                 return None
             try:
                 return await self._read_ps_state_locked(
                     client, timeout=timeout, pre_write_delay=pre_write_delay
                 )
+            except BleakError:
+                await self._release_after_operation_locked(force=True)
+                raise
             finally:
-                await self._disconnect_locked()
+                await self._release_after_operation_locked()
 
     async def async_read_status_probe(self) -> tuple[bytes | None, bytes | None]:
         async with self._lock:
@@ -497,8 +517,11 @@ class DolphinBleConnection:
                 return (None, None)
             try:
                 return await self._read_status_probe_locked(client)
+            except BleakError:
+                await self._release_after_operation_locked(force=True)
+                raise
             finally:
-                await self._disconnect_locked()
+                await self._release_after_operation_locked()
 
     async def async_reconnect(self) -> None:
         """Release BLE (same as app disconnecting) — does not open a new session."""
@@ -518,11 +541,11 @@ async def async_ble_periodic_release(hass: HomeAssistant, entry_id: str) -> None
             if session is None or session._shutting_down:
                 return
             entry = hass.config_entries.async_get_entry(entry_id)
-            interval = (
-                int(get_integration_options(entry)[OPT_BLE_KEEPALIVE_SEC])
-                if entry
-                else 0
-            )
+            opts = get_integration_options(entry) if entry else {}
+            if opts.get(OPT_BLE_PERSISTENT_SESSION):
+                await asyncio.sleep(60)
+                continue
+            interval = int(opts.get(OPT_BLE_KEEPALIVE_SEC, 0))
             if interval <= 0:
                 await asyncio.sleep(60)
                 continue
