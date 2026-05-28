@@ -122,12 +122,12 @@ def resolve_working_status(
     internal: InternalParamsSnapshot | None,
 ) -> WorkingStatus | None:
     """Prefer ``GetStatusRead``; infer from PS + internal bytes when fffc ack is missing."""
-    if gatt is not None and gatt != WorkingStatus.UNKNOWN:
-        return gatt
     if ps is None or ps == PSState.OFF:
         return None
     if ps == PSState.HOLD:
         return WorkingStatus.FINISHED
+    if gatt is not None and gatt != WorkingStatus.UNKNOWN:
+        return gatt
     if ps == PSState.ON and internal is not None:
         if internal.dolphin_error != 0:
             return WorkingStatus.FAULT

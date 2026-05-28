@@ -20,6 +20,7 @@ from .const import (
     OPT_BLE_KEEPALIVE_SEC,
     OPT_BLE_PERSISTENT_SESSION,
     OPT_DIAGNOSTIC_PROBE,
+    OPT_RESPONSIVE_MODE,
     OPT_RECONNECT_BUTTON,
     OPT_STATE_POLL_SEC,
 )
@@ -124,6 +125,10 @@ class MaytronicsDolphinOptionsFlow(config_entries.OptionsFlow):
                 vol.Required(
                     OPT_BLE_PERSISTENT_SESSION,
                     default=current[OPT_BLE_PERSISTENT_SESSION],
+                ): selector.BooleanSelector(),
+                vol.Required(
+                    OPT_RESPONSIVE_MODE,
+                    default=current[OPT_RESPONSIVE_MODE],
                 ): selector.BooleanSelector(),
             }
         )

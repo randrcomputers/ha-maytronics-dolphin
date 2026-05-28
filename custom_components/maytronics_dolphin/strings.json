@@ -21,9 +21,10 @@
     "step": {
       "init": {
         "title": "Maytronics Dolphin options",
-        "description": "By default HA connects for each poll/command, then disconnects (recommended). Enable persistent session only to test an always-on BLE link — may wedge the robot (BT LED on). Use Release Bluetooth or power-cycle if that happens.",
+        "description": "By default HA connects for each poll/command, then disconnects. Responsive mode keeps a dedicated BLE session and uses faster PS_State polling (best when HA is your only controller). Use Release Bluetooth or power-cycle if the BT LED gets stuck.",
         "data": {
           "ble_persistent_session_enabled": "Persistent BLE session (advanced, experimental)",
+          "responsive_mode_enabled": "Responsive mode (adaptive polling + dedicated session)",
           "ble_keepalive_seconds": "Periodic BLE release (ignored when persistent session is on)",
           "state_poll_seconds": "State poll interval (PS_State)",
           "reconnect_button_enabled": "Show Release Bluetooth button",

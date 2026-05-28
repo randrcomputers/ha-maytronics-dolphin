@@ -1,0 +1,69 @@
+"""Stabilize ``working_status`` so brief BLE read gaps do not flap to ``unknown``."""
+
+from __future__ import annotations
+
+import time
+from dataclasses import dataclass
+
+from .config_params import PSState
+from .const import (
+    WORKING_STATUS_HOLD_SEC,
+    WORKING_STATUS_UNKNOWN_AFTER_MISSES,
+)
+from .status_params import WorkingStatus
+
+
+@dataclass
+class WorkingStatusTracker:
+    """Hold last confirmed working status through short poll/read failures."""
+
+    stable: WorkingStatus | None = None
+    last_confirmed_monotonic: float = 0.0
+    miss_streak: int = 0
+
+    def update(
+        self,
+        raw: WorkingStatus | None,
+        ps: PSState | None,
+        *,
+        now: float | None = None,
+    ) -> WorkingStatus | None:
+        """Return stable working status for entities/automations."""
+        ts = time.monotonic() if now is None else now
+
+        if ps is None or ps == PSState.OFF:
+            self.stable = None
+            self.last_confirmed_monotonic = 0.0
+            self.miss_streak = 0
+            return None
+
+        if raw is not None and raw != WorkingStatus.UNKNOWN:
+            self.stable = raw
+            self.last_confirmed_monotonic = ts
+            self.miss_streak = 0
+            return raw
+
+        self.miss_streak += 1
+
+        if self.stable is not None:
+            age = ts - self.last_confirmed_monotonic
+            if age <= WORKING_STATUS_HOLD_SEC and self.miss_streak < WORKING_STATUS_UNKNOWN_AFTER_MISSES:
+                return self.stable
+
+        if ps == PSState.HOLD:
+            self.stable = WorkingStatus.FINISHED
+            self.last_confirmed_monotonic = ts
+            self.miss_streak = 0
+            return WorkingStatus.FINISHED
+
+        if raw == WorkingStatus.UNKNOWN:
+            return WorkingStatus.UNKNOWN
+
+        if self.stable is not None and self.miss_streak < WORKING_STATUS_UNKNOWN_AFTER_MISSES:
+            return self.stable
+
+        return WorkingStatus.UNKNOWN
+
+    @property
+    def is_held(self) -> bool:
+        return self.miss_streak > 0 and self.stable is not None

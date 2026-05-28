@@ -10,6 +10,7 @@ from .const import (
     OPT_BLE_KEEPALIVE_SEC,
     OPT_BLE_PERSISTENT_SESSION,
     OPT_DIAGNOSTIC_PROBE,
+    OPT_RESPONSIVE_MODE,
     OPT_RECONNECT_BUTTON,
     OPT_STATE_POLL_SEC,
 )
@@ -25,10 +26,13 @@ def get_integration_options(entry: ConfigEntry) -> dict[str, int | bool]:
     reconnect = opts.get(OPT_RECONNECT_BUTTON, DEFAULT_RECONNECT_BUTTON)
     probe = opts.get(OPT_DIAGNOSTIC_PROBE, False)
     persistent = opts.get(OPT_BLE_PERSISTENT_SESSION, False)
+    responsive = opts.get(OPT_RESPONSIVE_MODE, False)
     return {
         OPT_BLE_KEEPALIVE_SEC: max(0, min(600, int(keepalive))),
-        OPT_BLE_PERSISTENT_SESSION: bool(persistent),
+        # Responsive mode assumes HA is the only client and keeps the link alive.
+        OPT_BLE_PERSISTENT_SESSION: bool(persistent) or bool(responsive),
         OPT_STATE_POLL_SEC: max(0, min(600, int(poll))),
         OPT_RECONNECT_BUTTON: bool(reconnect),
         OPT_DIAGNOSTIC_PROBE: bool(probe),
+        OPT_RESPONSIVE_MODE: bool(responsive),
     }

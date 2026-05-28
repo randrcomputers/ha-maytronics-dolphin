@@ -76,7 +76,7 @@ All entities are created on one **device** per configured robot.
 | **Cleaner state** | Sensor | Text status from **PS_State** poll |
 | **Clean program** | Sensor | Selected mode from **Working_Clean_Mode** (`regular`, `ultraclean`, `floor_only`*, `waterline`, …) |
 | **Cleaning surface** | Sensor | Best-effort **floor** / **wall** / **waterline** while running (see below) |
-| **Working status** | Sensor | `at_work`, `finished`, `fault`, or `unknown` from **GetStatusRead** (for pool card / automations) |
+| **Working status** | Sensor | Stabilized `at_work` / `finished` / `fault` (v0.7.6+ holds last good value through brief read gaps; see attributes `working_status_raw`, `working_status_held`) |
 | **Cleaning active** | Binary sensor | On when state is anything except `off` |
 | **Autoclean** | Switch | Enable/disable autoclean command (not synced from robot state) |
 
@@ -143,6 +143,7 @@ Understanding this avoids “wrong” dashboard readings:
 | **State poll interval (PS_State)** | `45` s | How often HA reads status. Use `60`–`120` if the robot ever wedges; `0` = no automatic polls (commands only). |
 | **Periodic BLE release** | `120` s | Disconnect if still connected (safety net). `0` = off. Ignored when persistent session is on. |
 | **Persistent BLE session** | Off | **Experimental:** keep GATT connected between polls/commands (faster toggles; may wedge robot — use **Release Bluetooth** if BT LED sticks on). |
+| **Responsive mode** | Off | Adaptive faster polling + dedicated BLE session (best when HA is the only controller). |
 | **Show Release Bluetooth button** | On | Adds **Release Bluetooth** on the device |
 | **Diagnostic fffc/fffd reads during poll** | Off | Extra GATT reads each poll — leave off unless debugging |
 

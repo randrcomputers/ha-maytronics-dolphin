@@ -45,6 +45,18 @@ OPT_BLE_PERSISTENT_SESSION = "ble_persistent_session_enabled"
 OPT_STATE_POLL_SEC = "state_poll_seconds"
 OPT_RECONNECT_BUTTON = "reconnect_button_enabled"
 OPT_DIAGNOSTIC_PROBE = "diagnostic_probe_enabled"
+OPT_RESPONSIVE_MODE = "responsive_mode_enabled"
+
+# Responsive mode (opt-in): lighter, more frequent PS_State polling for "live" feel.
+RESPONSIVE_ACTIVE_POLL_SEC = 20
+RESPONSIVE_IDLE_POLL_SEC = 75
+RESPONSIVE_ACTIVE_FULL_POLL_EVERY = 6
+RESPONSIVE_IDLE_FULL_POLL_EVERY = 8
+
+# Working status stabilizer (Phase 1 reliability).
+WORKING_STATUS_HOLD_SEC = 240
+WORKING_STATUS_UNKNOWN_AFTER_MISSES = 4
+WORKING_STATUS_RETRY_DELAY_SEC = 0.35
 
 # Runtime keys (hass.data[DOMAIN][entry_id])
 DATA_BLE_SESSION = "ble_session"

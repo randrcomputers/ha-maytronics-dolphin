@@ -40,6 +40,7 @@ from .const import (
     OPT_BLE_KEEPALIVE_SEC,
     OPT_BLE_PERSISTENT_SESSION,
     OPT_DIAGNOSTIC_PROBE,
+    WORKING_STATUS_RETRY_DELAY_SEC,
 )
 from .status_params import (
     CleaningSurface,
@@ -471,6 +472,14 @@ class DolphinBleConnection:
                     internal = await self._read_internal_params_locked(client)
                     gatt_working = await self._read_get_status_locked(client)
                     working = resolve_working_status(ps, gatt_working, internal)
+                    if working in (None, WorkingStatus.UNKNOWN):
+                        await asyncio.sleep(WORKING_STATUS_RETRY_DELAY_SEC)
+                        gatt_working = await self._read_get_status_locked(client)
+                        if internal is None:
+                            internal = await self._read_internal_params_locked(client)
+                        retry = resolve_working_status(ps, gatt_working, internal)
+                        if retry not in (None, WorkingStatus.UNKNOWN):
+                            working = retry
                 else:
                     working = None
                 surface = infer_cleaning_surface(

@@ -126,6 +126,15 @@ class DolphinWorkingStatusSensor(_DolphinDiagSensorBase):
             return "unknown"
         return str(working)
 
+    @property
+    def extra_state_attributes(self) -> dict[str, str | bool | None]:
+        data = self.coordinator.data or {}
+        raw = data.get("working_status_raw")
+        return {
+            "working_status_raw": str(raw) if raw is not None else None,
+            "working_status_held": bool(data.get("working_status_held")),
+        }
+
 
 class DolphinCleaningSurfaceSensor(_DolphinDiagSensorBase):
     """Best-effort floor/wall/waterline from ``InternalParamsRead`` + clean program."""
