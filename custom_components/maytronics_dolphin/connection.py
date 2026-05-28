@@ -165,20 +165,16 @@ class DolphinBleConnection:
         payload: bytes,
         char_uuid: str,
         *,
-        pre_write_delay: float = 0.3,
-        post_write_delay: float = 0.3,
+        pre_write_delay: float = 0.15,
+        post_write_delay: float = 0.15,
     ) -> None:
+        """Write ``BTCommand`` / control frames (APK ``BLEManager.writePacket`` — write only)."""
         async with self._lock:
             try:
                 client = await self._ensure_connected_locked()
-                await client.start_notify(char_uuid, _noop_notify)
                 await asyncio.sleep(pre_write_delay)
                 await client.write_gatt_char(char_uuid, payload, response=True)
                 await asyncio.sleep(post_write_delay)
-                try:
-                    await client.stop_notify(char_uuid)
-                except BleakError:
-                    _LOGGER.debug("stop_notify failed (ignored)", exc_info=True)
             except BleakError as err:
                 await self._release_after_operation_locked(force=True)
                 raise HomeAssistantError(f"BLE error: {err}") from err

@@ -31,11 +31,23 @@ class WorkingStatusTracker:
         """Return stable working status for entities/automations."""
         ts = time.monotonic() if now is None else now
 
-        if ps is None or ps == PSState.OFF:
+        # Failed PS_State read — do not treat as powered off (was clearing stable here).
+        if ps is None:
+            if self.stable is not None:
+                return self.stable
+            return None
+
+        if ps == PSState.OFF:
             self.stable = None
             self.last_confirmed_monotonic = 0.0
             self.miss_streak = 0
             return None
+
+        if ps == PSState.HOLD:
+            self.stable = WorkingStatus.FINISHED
+            self.last_confirmed_monotonic = ts
+            self.miss_streak = 0
+            return WorkingStatus.FINISHED
 
         if raw is not None and raw != WorkingStatus.UNKNOWN:
             self.stable = raw
@@ -50,19 +62,10 @@ class WorkingStatusTracker:
             if age <= WORKING_STATUS_HOLD_SEC and self.miss_streak < WORKING_STATUS_UNKNOWN_AFTER_MISSES:
                 return self.stable
 
-        if ps == PSState.HOLD:
-            self.stable = WorkingStatus.FINISHED
-            self.last_confirmed_monotonic = ts
-            self.miss_streak = 0
-            return WorkingStatus.FINISHED
-
-        if raw == WorkingStatus.UNKNOWN:
-            return WorkingStatus.UNKNOWN
-
-        if self.stable is not None and self.miss_streak < WORKING_STATUS_UNKNOWN_AFTER_MISSES:
+        # Robot is on (PS not off) — APK treats powered unit as active unless finished/fault.
+        if self.stable is not None:
             return self.stable
-
-        return WorkingStatus.UNKNOWN
+        return WorkingStatus.AT_WORK
 
     @property
     def is_held(self) -> bool:

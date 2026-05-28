@@ -21,7 +21,12 @@ from .const import (
     RESPONSIVE_IDLE_POLL_SEC,
 )
 from .options import get_integration_options
-from .status_params import CleaningSurface, InternalParamsSnapshot, WorkingStatus
+from .status_params import (
+    CleaningSurface,
+    InternalParamsSnapshot,
+    WorkingStatus,
+    infer_cleaning_surface,
+)
 from .status_tracker import WorkingStatusTracker
 
 _LOGGER = logging.getLogger(__name__)
@@ -52,6 +57,64 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def _responsive_enabled(self) -> bool:
         return bool(get_integration_options(self._entry).get(OPT_RESPONSIVE_MODE, False))
 
+    def _merge_poll(
+        self,
+        prev: dict[str, Any],
+        *,
+        ps: PSState | None,
+        clean_mode: CleanMode | None,
+        surface: CleaningSurface | None,
+        working: WorkingStatus | None,
+        internal: InternalParamsSnapshot | None,
+        fffc_raw: bytes | None,
+        fffd_raw: bytes | None,
+    ) -> dict[str, Any]:
+        """Keep last good values when a read fails — failed read is not ``off``."""
+        prev_ps: PSState | None = prev.get("ps_state")
+        if ps is None and prev_ps is not None:
+            ps = prev_ps
+            ps_poll_ok = False
+        else:
+            ps_poll_ok = ps is not None
+
+        if clean_mode is None:
+            clean_mode = prev.get("clean_mode")
+        clean_mode_poll_ok = clean_mode is not None
+
+        if internal is None:
+            internal = prev.get("internal_snapshot")
+        internal_poll_ok = internal is not None
+
+        prev_surface: CleaningSurface | None = prev.get("cleaning_surface")
+        if surface in (None, CleaningSurface.UNAVAILABLE, CleaningSurface.UNKNOWN):
+            if (
+                ps is not None
+                and ps != PSState.OFF
+                and prev_surface
+                in (
+                    CleaningSurface.FLOOR,
+                    CleaningSurface.WALL,
+                    CleaningSurface.WATERLINE,
+                )
+            ):
+                surface = prev_surface
+
+        if surface is None and prev_surface is not None:
+            surface = prev_surface
+
+        return {
+            "ps_state": ps,
+            "ps_poll_ok": ps_poll_ok,
+            "clean_mode": clean_mode,
+            "clean_mode_poll_ok": clean_mode_poll_ok,
+            "cleaning_surface": surface,
+            "internal_poll_ok": internal_poll_ok,
+            "internal_snapshot": internal,
+            "status_fffc_hex": fffc_raw.hex() if fffc_raw else prev.get("status_fffc_hex"),
+            "internal_fffd_hex": fffd_raw.hex() if fffd_raw else prev.get("internal_fffd_hex"),
+            "_raw_working": working,
+        }
+
     def _finalize_payload(
         self,
         payload: dict[str, Any],
@@ -59,6 +122,8 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         raw_working: WorkingStatus | None = None,
         update_tracker: bool = True,
     ) -> dict[str, Any]:
+        if "_raw_working" in payload:
+            raw_working = payload.pop("_raw_working")
         ps: PSState | None = payload.get("ps_state")
         if update_tracker:
             stable = self._working_tracker.update(raw_working, ps)
@@ -68,9 +133,7 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             payload.setdefault("working_status_raw", None)
         payload["working_status"] = stable
         payload["working_status_held"] = self._working_tracker.is_held
-        if stable is not None and payload.get("cleaning_surface") is not None:
-            from .status_params import infer_cleaning_surface
-
+        if ps is not None and ps != PSState.OFF:
             payload["cleaning_surface"] = infer_cleaning_surface(
                 ps,
                 payload.get("clean_mode"),
@@ -116,53 +179,46 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 if ps is not None and ((ps == PSState.OFF) != (prev_ps == PSState.OFF)):
                     should_full_poll = True
                 else:
-                    effective_ps = ps if ps is not None else prev_ps
-                    return self._finalize_payload(
-                        {
-                            "ps_state": effective_ps,
-                            "ps_poll_ok": ps is not None,
-                            "clean_mode": prev_clean,
-                            "clean_mode_poll_ok": prev.get("clean_mode_poll_ok", False),
-                            "cleaning_surface": prev_surface,
-                            "internal_poll_ok": prev.get("internal_poll_ok", False),
-                            "internal_snapshot": prev_internal,
-                            "status_fffc_hex": prev_fffc,
-                            "internal_fffd_hex": prev_fffd,
-                        },
-                        update_tracker=False,
+                    merged = self._merge_poll(
+                        prev,
+                        ps=ps,
+                        clean_mode=prev_clean,
+                        surface=prev_surface,
+                        working=None,
+                        internal=prev_internal,
+                        fffc_raw=None,
+                        fffd_raw=None,
                     )
+                    return self._finalize_payload(merged, update_tracker=False)
 
         try:
             ps, clean_mode, surface, working, internal, fffc_raw, fffd_raw = (
                 await self._session.async_poll_robot_state()
             )
-            return self._finalize_payload(
-                {
-                    "ps_state": ps,
-                    "ps_poll_ok": ps is not None,
-                    "clean_mode": clean_mode,
-                    "clean_mode_poll_ok": clean_mode is not None,
-                    "cleaning_surface": surface,
-                    "internal_poll_ok": internal is not None,
-                    "internal_snapshot": internal,
-                    "status_fffc_hex": fffc_raw.hex() if fffc_raw else prev_fffc,
-                    "internal_fffd_hex": fffd_raw.hex() if fffd_raw else prev_fffd,
-                },
-                raw_working=working,
+            merged = self._merge_poll(
+                prev,
+                ps=ps,
+                clean_mode=clean_mode,
+                surface=surface,
+                working=working,
+                internal=internal,
+                fffc_raw=fffc_raw,
+                fffd_raw=fffd_raw,
             )
+            return self._finalize_payload(merged, raw_working=working)
         except Exception as err:  # noqa: BLE001 — keep last values
             _LOGGER.debug("Maytronics Dolphin coordinator update failed: %s", err)
-            return self._finalize_payload(
-                {
-                    "ps_state": prev_ps,
-                    "ps_poll_ok": False,
-                    "clean_mode": prev_clean,
-                    "clean_mode_poll_ok": False,
-                    "cleaning_surface": prev_surface,
-                    "internal_poll_ok": False,
-                    "internal_snapshot": prev_internal,
-                    "status_fffc_hex": prev_fffc,
-                    "internal_fffd_hex": prev_fffd,
-                },
-                raw_working=None,
+            merged = self._merge_poll(
+                prev,
+                ps=None,
+                clean_mode=None,
+                surface=None,
+                working=None,
+                internal=None,
+                fffc_raw=None,
+                fffd_raw=None,
             )
+            merged["ps_poll_ok"] = False
+            merged["clean_mode_poll_ok"] = False
+            merged["internal_poll_ok"] = False
+            return self._finalize_payload(merged, raw_working=None)

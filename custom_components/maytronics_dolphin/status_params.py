@@ -128,27 +128,30 @@ def resolve_working_status(
         return WorkingStatus.FINISHED
     if gatt is not None and gatt != WorkingStatus.UNKNOWN:
         return gatt
-    if ps == PSState.ON and internal is not None:
+    if internal is not None:
         if internal.dolphin_error != 0:
             return WorkingStatus.FAULT
-        # Heuristic for models that never return a parseable GetStatusRead (e.g. some Triton).
         if internal.motor_aux > 0 or internal.phase_byte in (1, 0x01):
             return WorkingStatus.AT_WORK
         return WorkingStatus.FINISHED
-    if gatt == WorkingStatus.UNKNOWN:
-        return WorkingStatus.UNKNOWN
-    return None
+    if gatt == WorkingStatus.FAULT:
+        return WorkingStatus.FAULT
+    # PS on but no parseable fffc/internal this cycle — do not surface ``unknown``.
+    return WorkingStatus.AT_WORK
 
 
 def parse_get_status_working(data: bytes) -> WorkingStatus | None:
-    """``GetStatusRead.getAck``: filter @+3, working @+4 when ``err==0``."""
+    """``GetStatusRead.getAck``: cmd @+1, err @+2, working @+4 when ``err==0``."""
     i = 0
     while i < len(data):
         if data[i] != SOP:
             i += 1
             continue
-        if i + 4 >= len(data):
+        if i + 5 >= len(data):
             return None
+        if data[i + 1] != GET_STATUS_CMD:
+            i += 1
+            continue
         if data[i + 2] != 0:
             i += 1
             continue
