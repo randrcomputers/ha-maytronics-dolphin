@@ -61,11 +61,9 @@ class WorkingStatusTracker:
             age = ts - self.last_confirmed_monotonic
             if age <= WORKING_STATUS_HOLD_SEC and self.miss_streak < WORKING_STATUS_UNKNOWN_AFTER_MISSES:
                 return self.stable
-
-        # Robot is on (PS not off) — APK treats powered unit as active unless finished/fault.
-        if self.stable is not None:
             return self.stable
-        return WorkingStatus.AT_WORK
+
+        return None
 
     @property
     def is_held(self) -> bool:

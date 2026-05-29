@@ -50,7 +50,7 @@ OPT_RESPONSIVE_MODE = "responsive_mode_enabled"
 # Responsive mode (opt-in): lighter, more frequent PS_State polling for "live" feel.
 RESPONSIVE_ACTIVE_POLL_SEC = 20
 RESPONSIVE_IDLE_POLL_SEC = 75
-RESPONSIVE_ACTIVE_FULL_POLL_EVERY = 6
+RESPONSIVE_ACTIVE_FULL_POLL_EVERY = 3
 RESPONSIVE_IDLE_FULL_POLL_EVERY = 8
 
 # Working status stabilizer (Phase 1 reliability).

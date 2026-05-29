@@ -81,9 +81,10 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             clean_mode = prev.get("clean_mode")
         clean_mode_poll_ok = clean_mode is not None
 
+        internal_fresh = internal is not None
         if internal is None:
             internal = prev.get("internal_snapshot")
-        internal_poll_ok = internal is not None
+        internal_poll_ok = internal_fresh
 
         prev_surface: CleaningSurface | None = prev.get("cleaning_surface")
         if surface in (None, CleaningSurface.UNAVAILABLE, CleaningSurface.UNKNOWN):

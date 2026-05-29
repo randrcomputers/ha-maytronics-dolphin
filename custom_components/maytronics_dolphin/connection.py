@@ -468,7 +468,15 @@ class DolphinBleConnection:
                     internal = await self._read_internal_params_locked(client)
                     gatt_working = await self._read_get_status_locked(client)
                     working = resolve_working_status(ps, gatt_working, internal)
-                    if working in (None, WorkingStatus.UNKNOWN):
+                    needs_retry = working is None or working == WorkingStatus.UNKNOWN
+                    if (
+                        not needs_retry
+                        and working == WorkingStatus.AT_WORK
+                        and gatt_working is None
+                        and internal is None
+                    ):
+                        needs_retry = True
+                    if needs_retry:
                         await asyncio.sleep(WORKING_STATUS_RETRY_DELAY_SEC)
                         gatt_working = await self._read_get_status_locked(client)
                         if internal is None:

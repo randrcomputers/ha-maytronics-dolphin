@@ -136,12 +136,23 @@ def resolve_working_status(
         return WorkingStatus.FINISHED
     if gatt == WorkingStatus.FAULT:
         return WorkingStatus.FAULT
-    # PS on but no parseable fffc/internal this cycle — do not surface ``unknown``.
-    return WorkingStatus.AT_WORK
+    return None
+
+
+def _working_from_code(code: int) -> WorkingStatus | None:
+    if code == 0:
+        return WorkingStatus.AT_WORK
+    if code == 1:
+        return WorkingStatus.FINISHED
+    if code == 2:
+        return WorkingStatus.FAULT
+    if code == 0xFF:
+        return None
+    return WorkingStatus.UNKNOWN
 
 
 def parse_get_status_working(data: bytes) -> WorkingStatus | None:
-    """``GetStatusRead.getAck``: cmd @+1, err @+2, working @+4 when ``err==0``."""
+    """``GetStatusRead.getAck``: working @+4 (APK); some models omit cmd byte in notify."""
     i = 0
     while i < len(data):
         if data[i] != SOP:
@@ -149,20 +160,22 @@ def parse_get_status_working(data: bytes) -> WorkingStatus | None:
             continue
         if i + 5 >= len(data):
             return None
-        if data[i + 1] != GET_STATUS_CMD:
-            i += 1
-            continue
         if data[i + 2] != 0:
             i += 1
             continue
-        code = data[i + 4] & 0xFF
-        if code == 0:
-            return WorkingStatus.AT_WORK
-        if code == 1:
-            return WorkingStatus.FINISHED
-        if code == 2:
-            return WorkingStatus.FAULT
-        return WorkingStatus.UNKNOWN
+        for off in (4, 3):
+            if i + off >= len(data):
+                continue
+            if off == 3 and data[i + 1] == GET_STATUS_CMD:
+                continue
+            parsed = _working_from_code(data[i + off] & 0xFF)
+            if parsed in (
+                WorkingStatus.AT_WORK,
+                WorkingStatus.FINISHED,
+                WorkingStatus.FAULT,
+            ):
+                return parsed
+        i += 1
     return None
 
 
