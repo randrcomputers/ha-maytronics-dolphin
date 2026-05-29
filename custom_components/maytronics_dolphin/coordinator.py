@@ -165,16 +165,7 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 if prev_active
                 else RESPONSIVE_IDLE_FULL_POLL_EVERY
             )
-            prev_working = prev.get("working_status")
-            force_status_while_cleaning = (
-                prev_active
-                and prev_working == WorkingStatus.AT_WORK
-            )
-            should_full_poll = (
-                (self._responsive_tick % full_every) == 0
-                or prev_ps is None
-                or force_status_while_cleaning
-            )
+            should_full_poll = (self._responsive_tick % full_every) == 0 or prev_ps is None
             if not should_full_poll:
                 try:
                     ps = await self._session.async_read_ps_state(

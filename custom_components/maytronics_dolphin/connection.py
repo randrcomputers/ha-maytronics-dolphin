@@ -165,16 +165,43 @@ class DolphinBleConnection:
         payload: bytes,
         char_uuid: str,
         *,
-        pre_write_delay: float = 0.15,
-        post_write_delay: float = 0.15,
+        pre_write_delay: float = 0.3,
+        post_write_delay: float = 0.35,
     ) -> None:
-        """Write ``BTCommand`` / control frames (APK ``BLEManager.writePacket`` — write only)."""
+        """Write ``BTCommand`` frames to ``fff8`` (restored notify path — required on some units)."""
+        try:
+            await asyncio.wait_for(self._send_gatt_packet_locked(
+                payload, char_uuid,
+                pre_write_delay=pre_write_delay,
+                post_write_delay=post_write_delay,
+            ), timeout=50.0)
+        except asyncio.TimeoutError as err:
+            raise HomeAssistantError(
+                "Timed out sending command (BLE busy with status poll — try again)"
+            ) from err
+
+    async def _send_gatt_packet_locked(
+        self,
+        payload: bytes,
+        char_uuid: str,
+        *,
+        pre_write_delay: float,
+        post_write_delay: float,
+    ) -> None:
         async with self._lock:
             try:
                 client = await self._ensure_connected_locked()
+                try:
+                    await client.start_notify(char_uuid, _noop_notify)
+                except BleakError:
+                    _LOGGER.debug("start_notify before command (ignored)", exc_info=True)
                 await asyncio.sleep(pre_write_delay)
                 await client.write_gatt_char(char_uuid, payload, response=True)
                 await asyncio.sleep(post_write_delay)
+                try:
+                    await client.stop_notify(char_uuid)
+                except BleakError:
+                    _LOGGER.debug("stop_notify after command (ignored)", exc_info=True)
             except BleakError as err:
                 await self._release_after_operation_locked(force=True)
                 raise HomeAssistantError(f"BLE error: {err}") from err

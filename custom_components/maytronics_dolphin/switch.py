@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from homeassistant.components.switch import SwitchEntity
@@ -106,13 +107,15 @@ class DolphinPowerSwitch(CoordinatorEntity, _DolphinBaseSwitch):
         await self._send(build_bt_command_19(BTCommandType.STARTUP))
         self._attr_is_on = True
         self.async_write_ha_state()
-        self.hass.async_create_task(self.coordinator.async_request_refresh())
+        await asyncio.sleep(0.5)
+        await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         await self._send(build_bt_command_19(BTCommandType.SHUTDOWN))
         self._attr_is_on = False
         self.async_write_ha_state()
-        self.hass.async_create_task(self.coordinator.async_request_refresh())
+        await asyncio.sleep(0.5)
+        await self.coordinator.async_request_refresh()
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
