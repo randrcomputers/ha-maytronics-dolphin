@@ -7,7 +7,8 @@ from dataclasses import dataclass
 
 from .config_params import PSState
 from .const import (
-    WORKING_STATUS_HOLD_SEC,
+    WORKING_STATUS_AT_WORK_HOLD_SEC,
+    WORKING_STATUS_FINISHED_HOLD_SEC,
     WORKING_STATUS_UNKNOWN_AFTER_MISSES,
 )
 from .status_params import WorkingStatus
@@ -31,7 +32,6 @@ class WorkingStatusTracker:
         """Return stable working status for entities/automations."""
         ts = time.monotonic() if now is None else now
 
-        # Failed PS_State read — do not treat as powered off (was clearing stable here).
         if ps is None:
             if self.stable is not None:
                 return self.stable
@@ -57,10 +57,21 @@ class WorkingStatusTracker:
 
         self.miss_streak += 1
 
-        if self.stable is not None:
+        if self.stable == WorkingStatus.FINISHED:
             age = ts - self.last_confirmed_monotonic
-            if age <= WORKING_STATUS_HOLD_SEC and self.miss_streak < WORKING_STATUS_UNKNOWN_AFTER_MISSES:
-                return self.stable
+            if age <= WORKING_STATUS_FINISHED_HOLD_SEC:
+                return WorkingStatus.FINISHED
+            return WorkingStatus.FINISHED
+
+        if self.stable == WorkingStatus.AT_WORK:
+            age = ts - self.last_confirmed_monotonic
+            if (
+                age <= WORKING_STATUS_AT_WORK_HOLD_SEC
+                and self.miss_streak < WORKING_STATUS_UNKNOWN_AFTER_MISSES
+            ):
+                return WorkingStatus.AT_WORK
+
+        if self.stable is not None and self.miss_streak < WORKING_STATUS_UNKNOWN_AFTER_MISSES:
             return self.stable
 
         return None

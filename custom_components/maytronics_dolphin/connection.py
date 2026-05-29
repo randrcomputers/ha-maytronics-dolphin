@@ -428,6 +428,7 @@ class DolphinBleConnection:
             "GetStatusRead",
         )
         if working is not None:
+            _LOGGER.debug("GetStatusRead parsed: %s", working)
             return working
         try:
             raw = await asyncio.wait_for(
@@ -435,7 +436,10 @@ class DolphinBleConnection:
                 timeout=_GATT_READ_PROBE_TIMEOUT,
             )
             if raw:
-                return parse_get_status_working(bytes(raw))
+                plain = parse_get_status_working(bytes(raw))
+                if plain is not None:
+                    _LOGGER.debug("GetStatusRead plain read: %s (%s)", plain, bytes(raw).hex())
+                return plain
         except (BleakError, asyncio.TimeoutError):
             _LOGGER.debug("GetStatusRead plain GATT read failed", exc_info=True)
         return None

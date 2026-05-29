@@ -121,7 +121,7 @@ def resolve_working_status(
     gatt: WorkingStatus | None,
     internal: InternalParamsSnapshot | None,
 ) -> WorkingStatus | None:
-    """Prefer ``GetStatusRead``; infer from PS + internal bytes when fffc ack is missing."""
+    """Prefer ``GetStatusRead`` (APK ``mWorkingStatus`` @ SOP+4); internal is fallback only."""
     if ps is None or ps == PSState.OFF:
         return None
     if ps == PSState.HOLD:
@@ -131,7 +131,9 @@ def resolve_working_status(
     if internal is not None:
         if internal.dolphin_error != 0:
             return WorkingStatus.FAULT
-        if internal.motor_aux > 0 or internal.phase_byte in (1, 0x01):
+        if internal.phase_byte in (1, 0x01):
+            return WorkingStatus.AT_WORK
+        if internal.motor_aux >= 8:
             return WorkingStatus.AT_WORK
         return WorkingStatus.FINISHED
     if gatt == WorkingStatus.FAULT:
@@ -152,31 +154,27 @@ def _working_from_code(code: int) -> WorkingStatus | None:
 
 
 def parse_get_status_working(data: bytes) -> WorkingStatus | None:
-    """``GetStatusRead.getAck``: working @+4 (APK); some models omit cmd byte in notify."""
+    """APK ``GetStatusRead.getAck``: ErrorCode @+2 (0=NOERR), WorkingStatus @+4 only."""
+    last: WorkingStatus | None = None
     i = 0
     while i < len(data):
         if data[i] != SOP:
             i += 1
             continue
         if i + 5 >= len(data):
-            return None
+            return last
         if data[i + 2] != 0:
             i += 1
             continue
-        for off in (4, 3):
-            if i + off >= len(data):
-                continue
-            if off == 3 and data[i + 1] == GET_STATUS_CMD:
-                continue
-            parsed = _working_from_code(data[i + off] & 0xFF)
-            if parsed in (
-                WorkingStatus.AT_WORK,
-                WorkingStatus.FINISHED,
-                WorkingStatus.FAULT,
-            ):
-                return parsed
+        parsed = _working_from_code(data[i + 4] & 0xFF)
+        if parsed in (
+            WorkingStatus.AT_WORK,
+            WorkingStatus.FINISHED,
+            WorkingStatus.FAULT,
+        ):
+            last = parsed
         i += 1
-    return None
+    return last
 
 
 def infer_cleaning_surface(
