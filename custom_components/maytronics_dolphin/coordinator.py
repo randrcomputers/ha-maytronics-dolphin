@@ -63,13 +63,14 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         *,
         ps: PSState | None,
         clean_mode: CleanMode | None,
-        surface: CleaningSurface | None,
-        working: WorkingStatus | None,
+        gatt_working: WorkingStatus | None,
         internal: InternalParamsSnapshot | None,
         fffc_raw: bytes | None,
         fffd_raw: bytes | None,
     ) -> dict[str, Any]:
         """Keep last good values when a read fails — failed read is not ``off``."""
+        from .status_params import parse_get_status_working, resolve_working_status
+
         prev_ps: PSState | None = prev.get("ps_state")
         if ps is None and prev_ps is not None:
             ps = prev_ps
@@ -85,6 +86,21 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if internal is None:
             internal = prev.get("internal_snapshot")
         internal_poll_ok = internal_fresh
+
+        if gatt_working is None and fffc_raw:
+            gatt_working = parse_get_status_working(bytes(ffc_raw))
+        if gatt_working is None:
+            prev_hex = prev.get("status_fffc_hex")
+            if prev_hex:
+                try:
+                    gatt_working = parse_get_status_working(bytes.fromhex(prev_hex))
+                except ValueError:
+                    pass
+
+        raw_working = resolve_working_status(ps, gatt_working, internal)
+        surface = infer_cleaning_surface(
+            ps, clean_mode, internal, working=raw_working
+        )
 
         prev_surface: CleaningSurface | None = prev.get("cleaning_surface")
         if surface in (None, CleaningSurface.UNAVAILABLE, CleaningSurface.UNKNOWN):
@@ -113,7 +129,8 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "internal_snapshot": internal,
             "status_fffc_hex": fffc_raw.hex() if fffc_raw else prev.get("status_fffc_hex"),
             "internal_fffd_hex": fffd_raw.hex() if fffd_raw else prev.get("internal_fffd_hex"),
-            "_raw_working": working,
+            "_raw_working": raw_working,
+            "_gatt_working": gatt_working,
         }
 
     def _finalize_payload(
@@ -125,6 +142,7 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     ) -> dict[str, Any]:
         if "_raw_working" in payload:
             raw_working = payload.pop("_raw_working")
+        payload.pop("_gatt_working", None)
         ps: PSState | None = payload.get("ps_state")
         if update_tracker:
             stable = self._working_tracker.update(raw_working, ps)
@@ -184,37 +202,34 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         prev,
                         ps=ps,
                         clean_mode=prev_clean,
-                        surface=prev_surface,
-                        working=None,
+                        gatt_working=None,
                         internal=prev_internal,
                         fffc_raw=None,
                         fffd_raw=None,
                     )
-                    return self._finalize_payload(merged, update_tracker=False)
+                    return self._finalize_payload(merged, update_tracker=True)
 
         try:
-            ps, clean_mode, surface, working, internal, fffc_raw, fffd_raw = (
+            ps, clean_mode, gatt_working, internal, fffc_raw, fffd_raw = (
                 await self._session.async_poll_robot_state()
             )
             merged = self._merge_poll(
                 prev,
                 ps=ps,
                 clean_mode=clean_mode,
-                surface=surface,
-                working=working,
+                gatt_working=gatt_working,
                 internal=internal,
                 fffc_raw=fffc_raw,
                 fffd_raw=fffd_raw,
             )
-            return self._finalize_payload(merged, raw_working=working)
+            return self._finalize_payload(merged)
         except Exception as err:  # noqa: BLE001 — keep last values
             _LOGGER.debug("Maytronics Dolphin coordinator update failed: %s", err)
             merged = self._merge_poll(
                 prev,
                 ps=None,
                 clean_mode=None,
-                surface=None,
-                working=None,
+                gatt_working=None,
                 internal=None,
                 fffc_raw=None,
                 fffd_raw=None,

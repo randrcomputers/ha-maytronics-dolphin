@@ -43,15 +43,12 @@ from .const import (
     WORKING_STATUS_RETRY_DELAY_SEC,
 )
 from .status_params import (
-    CleaningSurface,
     InternalParamsSnapshot,
     WorkingStatus,
     build_get_status_read_request,
     build_internal_params_read_request,
-    infer_cleaning_surface,
     parse_get_status_working,
     parse_internal_params_snapshot,
-    resolve_working_status,
 )
 from .options import get_integration_options
 
@@ -476,12 +473,12 @@ class DolphinBleConnection:
     ) -> tuple[
         PSState | None,
         CleanMode | None,
-        CleaningSurface | None,
         WorkingStatus | None,
         InternalParamsSnapshot | None,
         bytes | None,
         bytes | None,
     ]:
+        """Return raw reads; coordinator merges cache and resolves ``working_status``."""
         include_probe = bool(self._options().get(OPT_DIAGNOSTIC_PROBE, False))
         async with self._lock:
             try:
@@ -489,41 +486,24 @@ class DolphinBleConnection:
             except (BleakError, HomeAssistantError) as err:
                 _LOGGER.debug("poll: could not connect: %s", err)
                 await self._release_after_operation_locked(force=True)
-                return (None, None, None, None, None, None, None)
+                return (None, None, None, None, None, None)
             try:
                 ps = await self._read_ps_state_locked(client)
                 clean_mode = await self._read_clean_mode_locked(client)
                 internal: InternalParamsSnapshot | None = None
-                working: WorkingStatus | None = None
+                gatt_working: WorkingStatus | None = None
                 if ps is not None and ps != PSState.OFF:
                     internal = await self._read_internal_params_locked(client)
                     gatt_working = await self._read_get_status_locked(client)
-                    working = resolve_working_status(ps, gatt_working, internal)
-                    needs_retry = working is None or working == WorkingStatus.UNKNOWN
-                    if (
-                        not needs_retry
-                        and working == WorkingStatus.AT_WORK
-                        and gatt_working is None
-                        and internal is None
-                    ):
-                        needs_retry = True
-                    if needs_retry:
+                    if gatt_working is None:
                         await asyncio.sleep(WORKING_STATUS_RETRY_DELAY_SEC)
                         gatt_working = await self._read_get_status_locked(client)
                         if internal is None:
                             internal = await self._read_internal_params_locked(client)
-                        retry = resolve_working_status(ps, gatt_working, internal)
-                        if retry not in (None, WorkingStatus.UNKNOWN):
-                            working = retry
-                else:
-                    working = None
-                surface = infer_cleaning_surface(
-                    ps, clean_mode, internal, working=working
-                )
                 ffc, ffd = (None, None)
                 if include_probe:
                     ffc, ffd = await self._read_status_probe_locked(client)
-                return (ps, clean_mode, surface, working, internal, ffc, ffd)
+                return (ps, clean_mode, gatt_working, internal, ffc, ffd)
             except BleakError:
                 await self._release_after_operation_locked(force=True)
                 raise
