@@ -91,14 +91,19 @@ class DolphinPowerSwitch(CoordinatorEntity, _DolphinBaseSwitch):
     def __init__(self, coordinator: DolphinCoordinator, entry: ConfigEntry) -> None:
         CoordinatorEntity.__init__(self, coordinator)
         _DolphinBaseSwitch.__init__(self, entry, SWITCH_POWER, "Power")
+        self._pending_target: bool | None = None
 
     @property
     def assumed_state(self) -> bool:
+        if self._pending_target is not None:
+            return False
         ps = (self.coordinator.data or {}).get("ps_state")
         return ps is None
 
     @property
     def is_on(self) -> bool | None:
+        if self._pending_target is not None:
+            return self._pending_target
         ps = (self.coordinator.data or {}).get("ps_state") if self.coordinator.data else None
         inferred = ps_state_implies_power_on(ps)
         if inferred is not None:
@@ -106,20 +111,28 @@ class DolphinPowerSwitch(CoordinatorEntity, _DolphinBaseSwitch):
         return self._attr_is_on
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        await self._send(build_bt_command_19(BTCommandType.STARTUP))
-        self._attr_is_on = True
+        self._pending_target = True
         self.async_write_ha_state()
-        confirmed = await self.coordinator.async_refresh_until_power(True)
-        if not confirmed:
-            _LOGGER.debug("Power on sent; PS_State not confirmed after retries")
+        try:
+            await self._send(build_bt_command_19(BTCommandType.STARTUP))
+            confirmed = await self.coordinator.async_refresh_until_power(True)
+            if not confirmed:
+                _LOGGER.debug("Power on sent; PS_State not confirmed after retries")
+        finally:
+            self._pending_target = None
+            self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        await self._send(build_bt_command_19(BTCommandType.SHUTDOWN))
-        self._attr_is_on = False
+        self._pending_target = False
         self.async_write_ha_state()
-        confirmed = await self.coordinator.async_refresh_until_power(False)
-        if not confirmed:
-            _LOGGER.debug("Power off sent; PS_State not confirmed after retries")
+        try:
+            await self._send(build_bt_command_19(BTCommandType.SHUTDOWN))
+            confirmed = await self.coordinator.async_refresh_until_power(False)
+            if not confirmed:
+                _LOGGER.debug("Power off sent; PS_State not confirmed after retries")
+        finally:
+            self._pending_target = None
+            self.async_write_ha_state()
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()

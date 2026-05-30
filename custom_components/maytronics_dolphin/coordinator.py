@@ -18,6 +18,7 @@ from .const import (
     OPT_RESPONSIVE_MODE,
     POWER_CONFIRM_ATTEMPTS,
     POWER_CONFIRM_DELAY_SEC,
+    POWER_CONFIRM_INITIAL_DELAY_SEC,
     RESPONSIVE_ACTIVE_FULL_POLL_EVERY,
     RESPONSIVE_ACTIVE_POLL_SEC,
     RESPONSIVE_IDLE_FULL_POLL_EVERY,
@@ -45,7 +46,10 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         entry: ConfigEntry,
     ) -> None:
         poll_sec = int(get_integration_options(entry)[OPT_STATE_POLL_SEC])
-        interval = None if poll_sec <= 0 else timedelta(seconds=poll_sec)
+        if get_integration_options(entry).get(OPT_RESPONSIVE_MODE):
+            interval = timedelta(seconds=RESPONSIVE_IDLE_POLL_SEC)
+        else:
+            interval = None if poll_sec <= 0 else timedelta(seconds=poll_sec)
         super().__init__(
             hass,
             _LOGGER,
@@ -56,6 +60,8 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._entry = entry
         self._responsive_tick = 0
         self._working_tracker = WorkingStatusTracker()
+        self._force_full_poll = False
+        self._fresh_ps_read = False
 
     def _responsive_enabled(self) -> bool:
         return bool(get_integration_options(self._entry).get(OPT_RESPONSIVE_MODE, False))
@@ -75,7 +81,7 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         from .status_params import parse_get_status_working, resolve_working_status
 
         prev_ps: PSState | None = prev.get("ps_state")
-        if ps is None and prev_ps is not None:
+        if ps is None and prev_ps is not None and not self._fresh_ps_read:
             ps = prev_ps
             ps_poll_ok = False
         else:
@@ -168,12 +174,14 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         prev = self.data or {}
         prev_ps: PSState | None = prev.get("ps_state")
         prev_clean: CleanMode | None = prev.get("clean_mode")
-        prev_surface: CleaningSurface | None = prev.get("cleaning_surface")
         prev_internal: InternalParamsSnapshot | None = prev.get("internal_snapshot")
-        prev_fffc = prev.get("status_fffc_hex")
-        prev_fffd = prev.get("internal_fffd_hex")
 
-        if self._responsive_enabled():
+        force_full = self._force_full_poll
+        self._force_full_poll = False
+        fresh_ps = self._fresh_ps_read
+        self._fresh_ps_read = False
+
+        if self._responsive_enabled() and not force_full:
             self._responsive_tick += 1
             prev_active = prev_ps is not None and prev_ps != PSState.OFF
             self.update_interval = timedelta(
@@ -242,6 +250,11 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             merged["internal_poll_ok"] = False
             return self._finalize_payload(merged, raw_working=None)
 
+    async def async_force_full_refresh(self) -> None:
+        """Immediate full robot poll (bypasses responsive PS-only shortcut)."""
+        self._force_full_poll = True
+        await self.async_refresh()
+
     async def async_refresh_until_power(
         self,
         expected_on: bool,
@@ -251,9 +264,13 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     ) -> bool:
         """Poll until ``PS_State`` matches power command (or attempts exhausted)."""
         for attempt in range(max(1, attempts)):
-            if attempt > 0:
+            if attempt == 0:
+                await asyncio.sleep(POWER_CONFIRM_INITIAL_DELAY_SEC)
+            elif attempt > 0:
                 await asyncio.sleep(delay_sec)
-            await self.async_request_refresh()
+            self._force_full_poll = True
+            self._fresh_ps_read = True
+            await self.async_refresh()
             ps: PSState | None = (self.data or {}).get("ps_state")
             inferred = ps_state_implies_power_on(ps)
             if inferred is not None and inferred == expected_on:
