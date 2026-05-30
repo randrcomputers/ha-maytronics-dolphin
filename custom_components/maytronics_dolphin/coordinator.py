@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import timedelta
 from typing import Any
@@ -10,11 +11,13 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .config_params import CleanMode, PSState
+from .config_params import CleanMode, PSState, ps_state_implies_power_on
 from .connection import DolphinBleConnection
 from .const import DOMAIN, OPT_STATE_POLL_SEC
 from .const import (
     OPT_RESPONSIVE_MODE,
+    POWER_CONFIRM_ATTEMPTS,
+    POWER_CONFIRM_DELAY_SEC,
     RESPONSIVE_ACTIVE_FULL_POLL_EVERY,
     RESPONSIVE_ACTIVE_POLL_SEC,
     RESPONSIVE_IDLE_FULL_POLL_EVERY,
@@ -238,3 +241,21 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             merged["clean_mode_poll_ok"] = False
             merged["internal_poll_ok"] = False
             return self._finalize_payload(merged, raw_working=None)
+
+    async def async_refresh_until_power(
+        self,
+        expected_on: bool,
+        *,
+        attempts: int = POWER_CONFIRM_ATTEMPTS,
+        delay_sec: float = POWER_CONFIRM_DELAY_SEC,
+    ) -> bool:
+        """Poll until ``PS_State`` matches power command (or attempts exhausted)."""
+        for attempt in range(max(1, attempts)):
+            if attempt > 0:
+                await asyncio.sleep(delay_sec)
+            await self.async_request_refresh()
+            ps: PSState | None = (self.data or {}).get("ps_state")
+            inferred = ps_state_implies_power_on(ps)
+            if inferred is not None and inferred == expected_on:
+                return True
+        return False

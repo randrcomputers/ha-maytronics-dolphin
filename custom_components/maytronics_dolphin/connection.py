@@ -56,7 +56,7 @@ _LOGGER = logging.getLogger(__name__)
 
 _PS_READ_PER_STRATEGY_TIMEOUT = 3.5
 _PS_FAIL_LOG_INTERVAL_SEC = 300.0
-_PS_MAX_STRATEGIES = 2
+_PS_MAX_STRATEGIES = 4
 _GATT_READ_PROBE_TIMEOUT = 4.0
 _BLE_CONNECT_TIMEOUT = 35.0
 
@@ -80,8 +80,12 @@ class DolphinBleConnection:
         self.address = address
         self._entry_id = entry_id
         self._lock = asyncio.Lock()
+        self._command_waiters = 0
         self._client: BleakClientWithServiceCache | None = None
         self._shutting_down = False
+
+    def _command_pending(self) -> bool:
+        return self._command_waiters > 0
 
     def mark_shutting_down(self) -> None:
         self._shutting_down = True
@@ -166,16 +170,23 @@ class DolphinBleConnection:
         post_write_delay: float = 0.35,
     ) -> None:
         """Write ``BTCommand`` frames to ``fff8`` (restored notify path — required on some units)."""
+        self._command_waiters += 1
         try:
-            await asyncio.wait_for(self._send_gatt_packet_locked(
-                payload, char_uuid,
-                pre_write_delay=pre_write_delay,
-                post_write_delay=post_write_delay,
-            ), timeout=50.0)
+            await asyncio.wait_for(
+                self._send_gatt_packet_locked(
+                    payload,
+                    char_uuid,
+                    pre_write_delay=pre_write_delay,
+                    post_write_delay=post_write_delay,
+                ),
+                timeout=50.0,
+            )
         except asyncio.TimeoutError as err:
             raise HomeAssistantError(
                 "Timed out sending command (BLE busy with status poll — try again)"
             ) from err
+        finally:
+            self._command_waiters = max(0, self._command_waiters - 1)
 
     async def _send_gatt_packet_locked(
         self,
@@ -334,11 +345,12 @@ class DolphinBleConnection:
                 _LOGGER.debug(
                     "%s strategy %s BLE error: %s", log_label, label, err, exc_info=True
                 )
-                return None
+                continue
             except Exception as err:  # noqa: BLE001
                 _LOGGER.debug(
                     "%s strategy %s failed: %s", log_label, label, err, exc_info=True
                 )
+                continue
         if warn_on_fail:
             _throttled_ps_fail_warning(
                 f"Maytronics Dolphin: {log_label} read failed (other BLE commands may still work)."
@@ -413,9 +425,10 @@ class DolphinBleConnection:
                     return got
             except BleakError as err:
                 _LOGGER.debug("%s BLE error: %s", log_label, err, exc_info=True)
-                return None
+                continue
             except Exception as err:  # noqa: BLE001
                 _LOGGER.debug("%s failed: %s", log_label, err, exc_info=True)
+                continue
         return None
 
     async def _read_internal_params_locked(
@@ -489,17 +502,25 @@ class DolphinBleConnection:
                 return (None, None, None, None, None, None)
             try:
                 ps = await self._read_ps_state_locked(client)
+                if self._command_pending():
+                    return (ps, None, None, None, None, None)
                 clean_mode = await self._read_clean_mode_locked(client)
+                if self._command_pending():
+                    return (ps, clean_mode, None, None, None, None)
                 internal: InternalParamsSnapshot | None = None
                 gatt_working: WorkingStatus | None = None
                 if ps is not None and ps != PSState.OFF:
                     internal = await self._read_internal_params_locked(client)
+                    if self._command_pending():
+                        return (ps, clean_mode, None, internal, None, None)
                     gatt_working = await self._read_get_status_locked(client)
-                    if gatt_working is None:
+                    if gatt_working is None and not self._command_pending():
                         await asyncio.sleep(WORKING_STATUS_RETRY_DELAY_SEC)
                         gatt_working = await self._read_get_status_locked(client)
-                        if internal is None:
+                        if internal is None and not self._command_pending():
                             internal = await self._read_internal_params_locked(client)
+                if self._command_pending():
+                    return (ps, clean_mode, gatt_working, internal, None, None)
                 ffc, ffd = (None, None)
                 if include_probe:
                     ffc, ffd = await self._read_status_probe_locked(client)

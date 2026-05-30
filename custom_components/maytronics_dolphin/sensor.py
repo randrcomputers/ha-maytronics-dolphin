@@ -124,9 +124,6 @@ class DolphinWorkingStatusSensor(_DolphinDiagSensorBase):
         working: WorkingStatus | None = data.get("working_status") if data else None
         if working is not None:
             return str(working)
-        ps = data.get("ps_state") if data else None
-        if ps is not None and ps != PSState.OFF:
-            return str(WorkingStatus.AT_WORK)
         return "unknown"
 
     @property

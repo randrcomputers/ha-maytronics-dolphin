@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import asyncio
+import logging
 from typing import Any
 
 from homeassistant.components.switch import SwitchEntity
@@ -25,6 +25,8 @@ from .const import (
 )
 from .coordinator import DolphinCoordinator
 from .protocol import BTCommandType, build_bt_command_19
+
+_LOGGER = logging.getLogger(__name__)
 
 SWITCH_POWER = "power"
 SWITCH_AUTOCLEAN = "autoclean"
@@ -107,15 +109,17 @@ class DolphinPowerSwitch(CoordinatorEntity, _DolphinBaseSwitch):
         await self._send(build_bt_command_19(BTCommandType.STARTUP))
         self._attr_is_on = True
         self.async_write_ha_state()
-        await asyncio.sleep(0.5)
-        await self.coordinator.async_request_refresh()
+        confirmed = await self.coordinator.async_refresh_until_power(True)
+        if not confirmed:
+            _LOGGER.debug("Power on sent; PS_State not confirmed after retries")
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         await self._send(build_bt_command_19(BTCommandType.SHUTDOWN))
         self._attr_is_on = False
         self.async_write_ha_state()
-        await asyncio.sleep(0.5)
-        await self.coordinator.async_request_refresh()
+        confirmed = await self.coordinator.async_refresh_until_power(False)
+        if not confirmed:
+            _LOGGER.debug("Power off sent; PS_State not confirmed after retries")
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()

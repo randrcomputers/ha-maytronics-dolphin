@@ -29,8 +29,7 @@ def get_integration_options(entry: ConfigEntry) -> dict[str, int | bool]:
     responsive = opts.get(OPT_RESPONSIVE_MODE, False)
     return {
         OPT_BLE_KEEPALIVE_SEC: max(0, min(600, int(keepalive))),
-        # Responsive mode assumes HA is the only client and keeps the link alive.
-        OPT_BLE_PERSISTENT_SESSION: bool(persistent) or bool(responsive),
+        OPT_BLE_PERSISTENT_SESSION: bool(persistent),
         OPT_STATE_POLL_SEC: max(0, min(600, int(poll))),
         OPT_RECONNECT_BUTTON: bool(reconnect),
         OPT_DIAGNOSTIC_PROBE: bool(probe),

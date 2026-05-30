@@ -50,14 +50,18 @@ OPT_RESPONSIVE_MODE = "responsive_mode_enabled"
 # Responsive mode (opt-in): lighter, more frequent PS_State polling for "live" feel.
 RESPONSIVE_ACTIVE_POLL_SEC = 20
 RESPONSIVE_IDLE_POLL_SEC = 75
-RESPONSIVE_ACTIVE_FULL_POLL_EVERY = 3
-RESPONSIVE_IDLE_FULL_POLL_EVERY = 8
+RESPONSIVE_ACTIVE_FULL_POLL_EVERY = 2
+RESPONSIVE_IDLE_FULL_POLL_EVERY = 6
 
 # Working status stabilizer (Phase 1 reliability).
 WORKING_STATUS_AT_WORK_HOLD_SEC = 90
 WORKING_STATUS_FINISHED_HOLD_SEC = 7200
 WORKING_STATUS_UNKNOWN_AFTER_MISSES = 4
 WORKING_STATUS_RETRY_DELAY_SEC = 0.35
+
+# After power on/off, poll until PS_State matches or attempts exhausted.
+POWER_CONFIRM_ATTEMPTS = 6
+POWER_CONFIRM_DELAY_SEC = 1.25
 
 # Runtime keys (hass.data[DOMAIN][entry_id])
 DATA_BLE_SESSION = "ble_session"

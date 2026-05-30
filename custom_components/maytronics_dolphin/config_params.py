@@ -81,11 +81,11 @@ def _parse_config_params_ack_byte(data: bytes, command_code: int) -> int | None:
             return None
         if i + 47 <= len(data) and not _crc_ok_47(data, i):
             _LOGGER.debug(
-                "ConfigParamsRead cmd %s CRC mismatch (using byte %s); frame=%s",
+                "ConfigParamsRead cmd %s CRC mismatch (rejecting); frame=%s",
                 command_code,
-                value,
                 data[i : i + 47].hex(),
             )
+            return None
         return value
     return None
 
