@@ -13,7 +13,7 @@ Community integration for **Maytronics Dolphin** pool robots that speak the **My
 - **Cleaner state** sensor (`off`, `on`, `hold`, `programming`, `self_test`)
 - **Cleaning active** and diagnostic **PS state data OK** binary sensors
 - **Autoclean** switch and extra **buttons** (home, reset faults, joystick, and more)
-- **Built-in daily schedule** (v1.0.14+) — one or two start times per day, optional **Pool Cleaner Card** UI (no YAML helpers)
+- **Built-in daily schedule** (v1.14.0+) — one or two start times per day, optional **Pool Cleaner Card** UI (no YAML helpers)
 - **Short BLE sessions** — connect only for each command or status poll, then disconnect (reduces “stuck Bluetooth light / frozen robot” reports)
 - Works with the optional **[Pool Cleaner Card](https://github.com/randrcomputers/ha-pool-cleaner-card)** Lovelace frontend
 
@@ -50,7 +50,7 @@ This integration is **not** in the default HACS store; the custom repository URL
 
 For a dashboard card with robot/PSU artwork, status pill, power button, and **schedule panel**:
 
-1. Install **[Pool Cleaner Card](https://github.com/randrcomputers/ha-pool-cleaner-card)** (HACS → **Frontend** → custom repo) — use a build that supports integration schedule (integration **v1.0.14+**).
+1. Install **[Pool Cleaner Card](https://github.com/randrcomputers/ha-pool-cleaner-card)** (HACS → **Frontend** → custom repo) — use a build that supports integration schedule (integration **v1.14.0+**).
 2. Add card → **Pool Cleaner Card**.
 3. Choose your **Dolphin device** — entities auto-fill.
 4. Enable **Show schedule panel**. Leave **Schedule backend** on **Auto** (uses integration schedule; no YAML package).
@@ -61,7 +61,7 @@ For a dashboard card with robot/PSU artwork, status pill, power button, and **sc
 | Cleaner state | **Cleaner state** |
 | Cleaning active | **Cleaning active** (optional) |
 | BLE OK / connected | **Leave blank** (recommended) or **PS state data OK** (see below) |
-| Schedule | **Auto** + Dolphin device (v1.0.14+) — no helper mapping |
+| Schedule | **Auto** + Dolphin device (v1.14.0+) — no helper mapping |
 
 **Tip:** Leave **BLE OK / connected** empty. The card then treats “reachable” as the power entity not being `unavailable`. Mapping **PS state data OK** makes the corner icon mean “last status poll succeeded,” which often goes dark while the robot is still fine.
 
@@ -81,7 +81,7 @@ All entities are created on one **device** per configured robot.
 | **Cleaning surface** | Sensor | Best-effort **floor** / **wall** / **waterline** while running (see below) |
 | **Working status** | Sensor | Stabilized `at_work` / `finished` / `fault` (v0.7.6+ holds last good value through brief read gaps; see attributes `working_status_raw`, `working_status_held`) |
 | **Cleaning active** | Binary sensor | On when state is anything except `off` |
-| **Cleaner schedule** | Sensor | Stored schedule state (`on`/`off`) + attributes for card (v1.0.14+) |
+| **Cleaner schedule** | Sensor | Stored schedule state (`on`/`off`) + attributes for card (v1.14.0+) |
 | **Autoclean** | Switch | Enable/disable autoclean command (not synced from robot state) |
 
 ### Diagnostics
@@ -98,15 +98,15 @@ Quit RC mode, Reset faults, Home, Reset dolphin, Reset filter indication, Ping, 
 
 When enabled in options: **Release Bluetooth** — forces disconnect if HA still holds the link.
 
-### Built-in cleaner schedule (v1.0.14+)
+### Built-in cleaner schedule (v1.14.0+)
 
 Optional **daily schedule** stored inside the integration (no YAML helpers or automations). Used automatically by the **Pool Cleaner Card** when a **Dolphin device** is selected and **Schedule backend** is **Auto**.
 
 | Feature | Detail |
 | --- | --- |
-| **Run 1** | Start time + 1 h or 2 h when master schedule is **on** |
-| **Run 2** | Optional second daily time + duration (own on/off on the card) |
-| **Days** | Shared weekdays `0`–`6` (Mon–Sun), comma-separated in attributes |
+| **Run 1** | Start time + 1 h or 2 h + **own weekdays** when master schedule is **on** |
+| **Run 2** | Optional second daily time + duration + **own weekdays** (own on/off on the card) |
+| **Days** | Per run: `run1_days` and `run2_days` as `0`–`6` (Mon–Sun). Legacy `days` in storage migrates to both. |
 | **Persistence** | Saved in `.storage/maytronics_dolphin.schedule.<entry_id>` — survives HA restart |
 | **Time changes** | Apply immediately — no automation reload (minute tick reads stored times) |
 | **Repeats** | Each enabled run fires **once per day** on selected days while HA is running |
@@ -115,7 +115,8 @@ Optional **daily schedule** stored inside the integration (no YAML helpers or au
 
 | Attribute | Meaning |
 | --- | --- |
-| `days` | e.g. `0,1,2,3,4,5,6` |
+| `run1_days` | e.g. `0,1,2,3,4,5,6` |
+| `run2_days` | e.g. `0,6` (weekends only, etc.) |
 | `run1_time` | `HH:MM` (24h) |
 | `run1_duration_minutes` | `60` or `120` |
 | `run2_enabled` | `true` / `false` |
@@ -134,10 +135,11 @@ Example `set_schedule` data:
 ```yaml
 device_id: YOUR_DEVICE_ID
 enabled: true
-days: "0,1,2,3,4,5,6"
+run1_days: "0,1,2,3,4,5,6"
 run1_time: "08:09"
 run1_duration_minutes: 120
 run2_enabled: true
+run2_days: "0,6"
 run2_time: "17:00"
 run2_duration_minutes: 60
 ```

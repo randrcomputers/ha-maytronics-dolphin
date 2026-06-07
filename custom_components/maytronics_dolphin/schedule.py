@@ -21,7 +21,9 @@ _LOGGER = logging.getLogger(__name__)
 
 STORE_VERSION = 1
 
-ATTR_DAYS = "days"
+ATTR_DAYS = "days"  # legacy; migrated to run1_days / run2_days
+ATTR_RUN1_DAYS = "run1_days"
+ATTR_RUN2_DAYS = "run2_days"
 ATTR_RUN1_TIME = "run1_time"
 ATTR_RUN1_DURATION_MINUTES = "run1_duration_minutes"
 ATTR_RUN2_ENABLED = "run2_enabled"
@@ -34,16 +36,18 @@ class ScheduleConfig:
     """Persisted schedule for one Dolphin config entry."""
 
     enabled: bool = False
-    days: list[int] = field(default_factory=lambda: list(range(7)))
+    run1_days: list[int] = field(default_factory=lambda: list(range(7)))
     run1_time: str = "09:00"
     run1_duration_minutes: int = 120
     run2_enabled: bool = False
+    run2_days: list[int] = field(default_factory=lambda: list(range(7)))
     run2_time: str = "17:00"
     run2_duration_minutes: int = 60
 
     def as_attributes(self) -> dict[str, Any]:
         return {
-            ATTR_DAYS: ",".join(str(d) for d in sorted(set(self.days))),
+            ATTR_RUN1_DAYS: ",".join(str(d) for d in sorted(set(self.run1_days))),
+            ATTR_RUN2_DAYS: ",".join(str(d) for d in sorted(set(self.run2_days))),
             ATTR_RUN1_TIME: self.run1_time,
             ATTR_RUN1_DURATION_MINUTES: self.run1_duration_minutes,
             ATTR_RUN2_ENABLED: self.run2_enabled,
@@ -133,14 +137,16 @@ class DolphinScheduleManager:
         stored = await self._store.async_load()
         if not stored:
             return
+        legacy_days = stored.get("days")
         self.config = ScheduleConfig(
             enabled=bool(stored.get("enabled", False)),
-            days=_normalize_days(stored.get("days")),
+            run1_days=_normalize_days(stored.get("run1_days", legacy_days)),
             run1_time=_normalize_time(stored.get("run1_time"), "09:00"),
             run1_duration_minutes=_normalize_duration(
                 stored.get("run1_duration_minutes"), 120
             ),
             run2_enabled=bool(stored.get("run2_enabled", False)),
+            run2_days=_normalize_days(stored.get("run2_days", legacy_days)),
             run2_time=_normalize_time(stored.get("run2_time"), "17:00"),
             run2_duration_minutes=_normalize_duration(
                 stored.get("run2_duration_minutes"), 60
@@ -156,7 +162,13 @@ class DolphinScheduleManager:
         if "enabled" in kwargs and kwargs["enabled"] is not None:
             cfg.enabled = bool(kwargs["enabled"])
         if "days" in kwargs and kwargs["days"] is not None:
-            cfg.days = _normalize_days(kwargs["days"])
+            normalized = _normalize_days(kwargs["days"])
+            cfg.run1_days = normalized
+            cfg.run2_days = normalized
+        if "run1_days" in kwargs and kwargs["run1_days"] is not None:
+            cfg.run1_days = _normalize_days(kwargs["run1_days"])
+        if "run2_days" in kwargs and kwargs["run2_days"] is not None:
+            cfg.run2_days = _normalize_days(kwargs["run2_days"])
         if "run1_time" in kwargs and kwargs["run1_time"] is not None:
             cfg.run1_time = _normalize_time(kwargs["run1_time"], cfg.run1_time)
         if "run1_duration_minutes" in kwargs and kwargs["run1_duration_minutes"] is not None:
@@ -180,22 +192,26 @@ class DolphinScheduleManager:
         except (IndexError, ValueError):
             return False
 
-    def _day_matches(self, now: datetime) -> bool:
-        return now.weekday() in self.config.days
+    def _day_matches(self, days: list[int], now: datetime) -> bool:
+        return now.weekday() in days
 
     async def async_check_and_run(self, now: datetime) -> None:
         """Fire scheduled runs once per matching minute."""
         cfg = self.config
-        if not cfg.enabled or not self._day_matches(now):
+        if not cfg.enabled:
             return
 
-        slots: list[tuple[str, str, int]] = [
-            ("run1", cfg.run1_time, cfg.run1_duration_minutes),
+        slots: list[tuple[str, str, int, list[int]]] = [
+            ("run1", cfg.run1_time, cfg.run1_duration_minutes, cfg.run1_days),
         ]
         if cfg.run2_enabled:
-            slots.append(("run2", cfg.run2_time, cfg.run2_duration_minutes))
+            slots.append(
+                ("run2", cfg.run2_time, cfg.run2_duration_minutes, cfg.run2_days)
+            )
 
-        for slot_id, slot_time, duration in slots:
+        for slot_id, slot_time, duration, days in slots:
+            if not self._day_matches(days, now):
+                continue
             if not self._time_matches(slot_time, now):
                 continue
             key = f"{now.date().isoformat()}-{now.hour:02d}{now.minute:02d}-{slot_id}"

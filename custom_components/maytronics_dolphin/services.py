@@ -24,6 +24,8 @@ SET_SCHEDULE_SCHEMA = vol.Schema(
         vol.Required("device_id"): cv.string,
         vol.Optional("enabled"): cv.boolean,
         vol.Optional("days"): cv.string,
+        vol.Optional("run1_days"): cv.string,
+        vol.Optional("run2_days"): cv.string,
         vol.Optional("run1_time"): cv.string,
         vol.Optional("run1_duration_minutes"): vol.All(cv.positive_int, vol.In([60, 120])),
         vol.Optional("run2_enabled"): cv.boolean,
@@ -79,9 +81,11 @@ async def _async_run_timed(call: ServiceCall) -> None:
 
 @callback
 def async_register_services(hass: HomeAssistant) -> None:
-    """Register schedule services once."""
+    """Register schedule services (re-register so schema updates on reload)."""
     if hass.services.has_service(DOMAIN, SERVICE_SET_SCHEDULE):
-        return
+        hass.services.async_remove(DOMAIN, SERVICE_SET_SCHEDULE)
+    if hass.services.has_service(DOMAIN, SERVICE_RUN_TIMED):
+        hass.services.async_remove(DOMAIN, SERVICE_RUN_TIMED)
 
     hass.services.async_register(
         DOMAIN,

@@ -13,8 +13,14 @@ set_schedule:
       selector:
         boolean:
     days:
-      description: Weekdays 0=Mon … 6=Sun (comma string or list)
+      description: Legacy — sets both run1_days and run2_days (0=Mon … 6=Sun)
       example: "0,1,2,3,4,5,6"
+    run1_days:
+      description: Run 1 weekdays 0=Mon … 6=Sun (comma string)
+      example: "0,1,2,3,4,5,6"
+    run2_days:
+      description: Run 2 weekdays 0=Mon … 6=Sun (comma string)
+      example: "0,6"
     run1_time:
       description: First daily start (HH:MM, 24h)
       example: "09:00"
