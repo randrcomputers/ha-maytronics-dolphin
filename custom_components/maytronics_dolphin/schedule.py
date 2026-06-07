@@ -46,6 +46,7 @@ class ScheduleConfig:
 
     def as_attributes(self) -> dict[str, Any]:
         return {
+            "enabled": self.enabled,
             ATTR_RUN1_DAYS: ",".join(str(d) for d in sorted(set(self.run1_days))),
             ATTR_RUN2_DAYS: ",".join(str(d) for d in sorted(set(self.run2_days))),
             ATTR_RUN1_TIME: self.run1_time,
