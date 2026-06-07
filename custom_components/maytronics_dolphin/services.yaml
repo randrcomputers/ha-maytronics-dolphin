@@ -1,0 +1,55 @@
+set_schedule:
+  name: Set cleaner schedule
+  description: >-
+    Store daily schedule in the integration (no input helpers required). Run 2 is optional.
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: maytronics_dolphin
+    enabled:
+      selector:
+        boolean:
+    days:
+      description: Weekdays 0=Mon … 6=Sun (comma string or list)
+      example: "0,1,2,3,4,5,6"
+    run1_time:
+      description: First daily start (HH:MM, 24h)
+      example: "09:00"
+    run1_duration_minutes:
+      selector:
+        select:
+          options:
+            - "60"
+            - "120"
+    run2_enabled:
+      selector:
+        boolean:
+    run2_time:
+      example: "17:00"
+    run2_duration_minutes:
+      selector:
+        select:
+          options:
+            - "60"
+            - "120"
+
+run_timed:
+  name: Run cleaner for duration
+  description: Turn power on, wait, then turn off (same as card Run 1h/2h Now).
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          filter:
+            - integration: maytronics_dolphin
+    duration_minutes:
+      required: true
+      selector:
+        select:
+          options:
+            - "60"
+            - "120"

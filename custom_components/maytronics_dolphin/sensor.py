@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityCategory
@@ -13,8 +13,9 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .config_params import CleanMode, PSState, clean_mode_to_str, ps_state_to_str
 from .status_params import CleaningSurface, WorkingStatus
-from .const import CONF_ADDRESS, CONF_NAME, DATA_COORDINATOR, DOMAIN
+from .const import CONF_ADDRESS, CONF_NAME, DATA_COORDINATOR, DATA_SCHEDULE, DOMAIN
 from .coordinator import DolphinCoordinator
+from .schedule import DolphinScheduleManager
 
 
 async def async_setup_entry(
@@ -26,12 +27,16 @@ async def async_setup_entry(
     coordinator: DolphinCoordinator = hass.data[DOMAIN][entry.entry_id][
         DATA_COORDINATOR
     ]
+    schedule: DolphinScheduleManager = hass.data[DOMAIN][entry.entry_id][
+        DATA_SCHEDULE
+    ]
     async_add_entities(
         [
             DolphinCleanerStateSensor(coordinator, entry),
             DolphinCleanProgramSensor(coordinator, entry),
             DolphinCleaningSurfaceSensor(coordinator, entry),
             DolphinWorkingStatusSensor(coordinator, entry),
+            DolphinScheduleSensor(schedule, entry),
             DolphinStatusRawSensor(coordinator, entry, "fffc"),
             DolphinStatusRawSensor(coordinator, entry, "fffd"),
         ],
@@ -203,3 +208,40 @@ class DolphinStatusRawSensor(_DolphinDiagSensorBase):
         if self._which == "fffc":
             return data.get("status_fffc_hex")
         return data.get("internal_fffd_hex")
+
+
+class DolphinScheduleSensor(SensorEntity):
+    """Stored daily schedule (read by Pool Cleaner Card; no YAML helpers required)."""
+
+    _attr_has_entity_name = True
+    _attr_should_poll = False
+
+    def __init__(
+        self, manager: DolphinScheduleManager, entry: ConfigEntry
+    ) -> None:
+        self._manager = manager
+        self._entry = entry
+        self._address = entry.data[CONF_ADDRESS]
+        dev_name = entry.data.get(CONF_NAME) or "Dolphin"
+        self._attr_unique_id = f"{entry.entry_id}_schedule"
+        self._attr_name = "Cleaner schedule"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name=dev_name,
+            manufacturer="Maytronics",
+            model="Dolphin (BLE)",
+            connections={(dr.CONNECTION_BLUETOOTH, dr.format_mac(self._address))},
+        )
+        manager.add_listener(self._schedule_changed)
+
+    @callback
+    def _schedule_changed(self) -> None:
+        self.async_write_ha_state()
+
+    @property
+    def native_value(self) -> str:
+        return "on" if self._manager.config.enabled else "off"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, bool | int | str]:
+        return self._manager.config.as_attributes()

@@ -21,7 +21,7 @@
     "step": {
       "init": {
         "title": "Maytronics Dolphin options",
-        "description": "By default HA connects for each poll/command, then disconnects. Responsive mode keeps a dedicated BLE session and uses faster PS_State polling (best when HA is your only controller). Use Release Bluetooth or power-cycle if the BT LED gets stuck.",
+        "description": "By default HA connects for each poll/command, then disconnects. Responsive mode uses faster adaptive PS_State polling (does not keep BLE connected). Use Release Bluetooth or power-cycle if the BT LED gets stuck.",
         "data": {
           "ble_persistent_session_enabled": "Persistent BLE session (advanced, experimental)",
           "responsive_mode_enabled": "Responsive mode (faster adaptive polling)",
