@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Callable
+from contextlib import suppress
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Any
@@ -125,6 +126,7 @@ class DolphinScheduleManager:
         self._listeners: list[Callable[[], None]] = []
         self._last_fire: set[str] = set()
         self._timed_task: asyncio.Task[None] | None = None
+        self._timed_powered_on = False
 
     def add_listener(self, listener: Callable[[], None]) -> None:
         self._listeners.append(listener)
@@ -228,37 +230,62 @@ class DolphinScheduleManager:
                 duration,
             )
             await self.async_run_timed(duration)
+            break  # one timed run at a time; next slot waits for next minute
 
-    async def async_run_timed(self, duration_minutes: int) -> None:
-        """Power on, wait, power off (restarts if already running)."""
-        minutes = _normalize_duration(duration_minutes, 120)
-        if self._timed_task and not self._timed_task.done():
-            self._timed_task.cancel()
-            with asyncio.suppress(asyncio.CancelledError):
-                await self._timed_task
-        self._timed_task = asyncio.create_task(self._timed_run_impl(minutes))
+    async def _cancel_timed_task(self) -> None:
+        if self._timed_task is None or self._timed_task.done():
+            self._timed_task = None
+            return
+        self._timed_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await self._timed_task
+        self._timed_task = None
 
-    async def _timed_run_impl(self, duration_minutes: int) -> None:
+    async def _shutdown_timed_power(self) -> None:
+        if not self._timed_powered_on:
+            return
         try:
-            await self._session.async_send_gatt_packet(
-                build_bt_command_19(BTCommandType.STARTUP),
-                COMMAND_CHAR_UUID,
-            )
-            await self._coordinator.async_refresh_until_power(True)
-            await asyncio.sleep(duration_minutes * 60)
             await self._session.async_send_gatt_packet(
                 build_bt_command_19(BTCommandType.SHUTDOWN),
                 COMMAND_CHAR_UUID,
             )
             await self._coordinator.async_refresh_until_power(False)
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.warning("Maytronics Dolphin timed run shutdown failed: %s", err)
+        finally:
+            self._timed_powered_on = False
+
+    async def async_run_timed(self, duration_minutes: int, *, wait: bool = False) -> None:
+        """Power on, wait, power off (one run at a time)."""
+        minutes = _normalize_duration(duration_minutes, 120)
+        if self._timed_task and not self._timed_task.done():
+            await self._cancel_timed_task()
+            await self._shutdown_timed_power()
+        self._timed_task = asyncio.create_task(self._timed_run_impl(minutes))
+        if wait:
+            await self._timed_task
+
+    async def _timed_run_impl(self, duration_minutes: int) -> None:
+        self._timed_powered_on = False
+        try:
+            await self._session.async_send_gatt_packet(
+                build_bt_command_19(BTCommandType.STARTUP),
+                COMMAND_CHAR_UUID,
+            )
+            self._timed_powered_on = True
+            await self._coordinator.async_refresh_until_power(True)
+            await asyncio.sleep(duration_minutes * 60)
+            await self._shutdown_timed_power()
         except asyncio.CancelledError:
             _LOGGER.debug("Maytronics Dolphin timed run cancelled")
+            await self._shutdown_timed_power()
             raise
         except Exception as err:  # noqa: BLE001
             _LOGGER.warning("Maytronics Dolphin timed run failed: %s", err)
+            await self._shutdown_timed_power()
+        finally:
+            self._timed_task = None
 
     async def async_shutdown(self) -> None:
-        if self._timed_task and not self._timed_task.done():
-            self._timed_task.cancel()
-            with asyncio.suppress(asyncio.CancelledError):
-                await self._timed_task
+        await self._cancel_timed_task()
+        await self._shutdown_timed_power()

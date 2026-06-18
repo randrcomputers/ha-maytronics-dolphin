@@ -76,7 +76,7 @@ async def _async_run_timed(call: ServiceCall) -> None:
     manager = _manager_for_call(call.hass, call)
     if manager is None:
         return
-    await manager.async_run_timed(int(call.data["duration_minutes"]))
+    await manager.async_run_timed(int(call.data["duration_minutes"]), wait=True)
 
 
 @callback
