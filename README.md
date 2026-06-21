@@ -192,10 +192,10 @@ Understanding this avoids “wrong” dashboard readings:
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| **State poll interval (PS_State)** | `45` s | How often HA reads status. Use `60`–`120` if the robot ever wedges; `0` = no automatic polls (commands only). |
+| **State poll interval (PS_State)** | `45` s | How often HA reads status. Use `60`–`120` for stability; `0` = commands only. |
 | **Periodic BLE release** | `120` s | Disconnect if still connected (safety net). `0` = off. Ignored when persistent session is on. |
-| **Persistent BLE session** | Off | **Experimental:** keep GATT connected between polls/commands (faster toggles; may wedge robot — use **Release Bluetooth** if BT LED sticks on). |
-| **Responsive mode** | Off | Faster adaptive **PS_State** polling when robot looks active (does **not** keep BLE connected — use **Persistent BLE session** for that) |
+| **Persistent BLE session** | Off | **Experimental:** keep GATT connected (faster toggles; may wedge robot). |
+| **Responsive mode** | Off | Faster polling when active — **leave off** if power/schedule feel unreliable (v1.16.0+ gives commands priority either way). |
 | **Show Release Bluetooth button** | On | Adds **Release Bluetooth** on the device |
 | **Diagnostic fffc/fffd reads during poll** | Off | Extra GATT reads each poll — leave off unless debugging |
 

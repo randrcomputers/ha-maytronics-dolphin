@@ -172,6 +172,11 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _async_update_data(self) -> dict[str, Any]:
         prev = self.data or {}
+
+        if self._session.command_active:
+            _LOGGER.debug("Maytronics Dolphin: deferring status poll (command active)")
+            return self._finalize_payload(dict(prev), update_tracker=False)
+
         prev_ps: PSState | None = prev.get("ps_state")
         prev_clean: CleanMode | None = prev.get("clean_mode")
         prev_internal: InternalParamsSnapshot | None = prev.get("internal_snapshot")
@@ -262,17 +267,35 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         attempts: int = POWER_CONFIRM_ATTEMPTS,
         delay_sec: float = POWER_CONFIRM_DELAY_SEC,
     ) -> bool:
-        """Poll until ``PS_State`` matches power command (or attempts exhausted)."""
+        """Poll PS_State until it matches power command (lightweight — no full GATT sweep)."""
+        prev = self.data or {}
         for attempt in range(max(1, attempts)):
             if attempt == 0:
                 await asyncio.sleep(POWER_CONFIRM_INITIAL_DELAY_SEC)
             elif attempt > 0:
                 await asyncio.sleep(delay_sec)
-            self._force_full_poll = True
-            self._fresh_ps_read = True
-            await self.async_refresh()
-            ps: PSState | None = (self.data or {}).get("ps_state")
+            try:
+                ps = await self._session.async_read_ps_state(
+                    timeout=2.5,
+                    pre_write_delay=0.1,
+                )
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.debug("Maytronics Dolphin power confirm read failed: %s", err)
+                ps = None
+            if ps is None:
+                continue
             inferred = ps_state_implies_power_on(ps)
             if inferred is not None and inferred == expected_on:
+                merged = self._merge_poll(
+                    prev,
+                    ps=ps,
+                    clean_mode=prev.get("clean_mode"),
+                    gatt_working=None,
+                    internal=prev.get("internal_snapshot"),
+                    fffc_raw=None,
+                    fffd_raw=None,
+                )
+                self.async_set_updated_data(self._finalize_payload(merged))
                 return True
+            prev = self.data or prev
         return False

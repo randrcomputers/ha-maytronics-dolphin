@@ -87,6 +87,11 @@ class DolphinBleConnection:
     def _command_pending(self) -> bool:
         return self._command_waiters > 0
 
+    @property
+    def command_active(self) -> bool:
+        """True while a user/service BLE command is queued or running."""
+        return self._command_pending()
+
     def mark_shutting_down(self) -> None:
         self._shutting_down = True
 
@@ -179,11 +184,11 @@ class DolphinBleConnection:
                     pre_write_delay=pre_write_delay,
                     post_write_delay=post_write_delay,
                 ),
-                timeout=50.0,
+                timeout=120.0,
             )
         except asyncio.TimeoutError as err:
             raise HomeAssistantError(
-                "Timed out sending command (BLE busy with status poll — try again)"
+                "Timed out sending command (BLE busy — try again in a few seconds)"
             ) from err
         finally:
             self._command_waiters = max(0, self._command_waiters - 1)
@@ -227,6 +232,7 @@ class DolphinBleConnection:
         timeout: float,
         pre_write_delay: float,
         write_with_response: bool = True,
+        abort_if_command_pending: bool = False,
     ) -> _T | None:
         acc = bytearray()
         loop = asyncio.get_running_loop()
@@ -240,7 +246,11 @@ class DolphinBleConnection:
 
         await client.start_notify(notify_uuid, _handler)
         try:
+            if abort_if_command_pending and self._command_pending():
+                return None
             await asyncio.sleep(pre_write_delay)
+            if abort_if_command_pending and self._command_pending():
+                return None
             await client.write_gatt_char(
                 write_uuid, payload, response=write_with_response
             )
@@ -322,11 +332,15 @@ class DolphinBleConnection:
         timeout: float | None = None,
         pre_write_delay: float = 0.2,
         warn_on_fail: bool = True,
+        abort_if_command_pending: bool = False,
     ) -> _T | None:
         per = timeout if timeout is not None else _PS_READ_PER_STRATEGY_TIMEOUT
         for notify_u, write_u, payload, label, rsp in self._config_params_strategies(
             command_code
         ):
+            if abort_if_command_pending and self._command_pending():
+                _LOGGER.debug("%s read aborted (command pending)", log_label)
+                return None
             try:
                 got = await self._read_config_params_notify_once(
                     client,
@@ -337,6 +351,7 @@ class DolphinBleConnection:
                     timeout=per,
                     pre_write_delay=pre_write_delay,
                     write_with_response=rsp,
+                    abort_if_command_pending=abort_if_command_pending,
                 )
                 if got is not None:
                     _LOGGER.debug("%s read ok (%s)", log_label, label)
@@ -363,6 +378,7 @@ class DolphinBleConnection:
         *,
         timeout: float | None = None,
         pre_write_delay: float = 0.2,
+        abort_if_command_pending: bool = False,
     ) -> PSState | None:
         return await self._read_config_params_locked(
             client,
@@ -371,6 +387,7 @@ class DolphinBleConnection:
             "PS_State",
             timeout=timeout,
             pre_write_delay=pre_write_delay,
+            abort_if_command_pending=abort_if_command_pending,
         )
 
     async def _read_clean_mode_locked(
@@ -388,6 +405,7 @@ class DolphinBleConnection:
             timeout=timeout,
             pre_write_delay=pre_write_delay,
             warn_on_fail=False,
+            abort_if_command_pending=True,
         )
 
     async def _read_gatt_notify_locked(
@@ -401,6 +419,7 @@ class DolphinBleConnection:
         *,
         timeout: float | None = None,
         pre_write_delay: float = 0.2,
+        abort_if_command_pending: bool = False,
     ) -> _T | None:
         per = timeout if timeout is not None else _PS_READ_PER_STRATEGY_TIMEOUT
         strategies = (
@@ -409,6 +428,9 @@ class DolphinBleConnection:
             (notify_uuid, notify_uuid, False),
         )
         for notify_u, write_u, rsp in strategies:
+            if abort_if_command_pending and self._command_pending():
+                _LOGGER.debug("%s read aborted (command pending)", log_label)
+                return None
             try:
                 got = await self._read_config_params_notify_once(
                     client,
@@ -419,6 +441,7 @@ class DolphinBleConnection:
                     timeout=per,
                     pre_write_delay=pre_write_delay,
                     write_with_response=rsp,
+                    abort_if_command_pending=abort_if_command_pending,
                 )
                 if got is not None:
                     _LOGGER.debug("%s read ok (notify=%s write=%s)", log_label, notify_u, write_u)
@@ -442,6 +465,7 @@ class DolphinBleConnection:
             build_internal_params_read_request(),
             parse_internal_params_snapshot,
             "InternalParamsRead",
+            abort_if_command_pending=True,
         )
         if snap:
             _LOGGER.debug(
@@ -463,6 +487,7 @@ class DolphinBleConnection:
             build_get_status_read_request(),
             parse_get_status_working,
             "GetStatusRead",
+            abort_if_command_pending=True,
         )
         if working is not None:
             _LOGGER.debug("GetStatusRead parsed: %s", working)
@@ -492,8 +517,13 @@ class DolphinBleConnection:
         bytes | None,
     ]:
         """Return raw reads; coordinator merges cache and resolves ``working_status``."""
+        if self._command_pending():
+            _LOGGER.debug("poll skipped (command active)")
+            return (None, None, None, None, None, None)
         include_probe = bool(self._options().get(OPT_DIAGNOSTIC_PROBE, False))
         async with self._lock:
+            if self._command_pending():
+                return (None, None, None, None, None, None)
             try:
                 client = await self._ensure_connected_locked()
             except (BleakError, HomeAssistantError) as err:
@@ -501,7 +531,10 @@ class DolphinBleConnection:
                 await self._release_after_operation_locked(force=True)
                 return (None, None, None, None, None, None)
             try:
-                ps = await self._read_ps_state_locked(client)
+                ps = await self._read_ps_state_locked(
+                    client,
+                    abort_if_command_pending=True,
+                )
                 if self._command_pending():
                     return (ps, None, None, None, None, None)
                 clean_mode = await self._read_clean_mode_locked(client)
