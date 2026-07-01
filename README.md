@@ -2,8 +2,43 @@
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 
-Community integration for **Maytronics Dolphin** pool robots that speak the **MyDolphin** Bluetooth protocol. Control power, read cleaner status, and use optional advanced commands — all locally over BLE.
+Community integration for **older Maytronics Dolphin** pool robots that use the **legacy MyDolphin** app and the classic **Bluetooth-only** GATT protocol (service `FFF0`, commands on `FFF8` / `FFF9` / `FFFA`). Control power, read cleaner status, schedules, and optional advanced commands — all **locally over BLE**, with no Maytronics cloud account.
 
+> **Using the MyDolphin Plus app (v3.x)?** That is a **different** robot generation and BLE stack. Use **[ha-maytronics-dolphin-plus](https://github.com/randrcomputers/ha-maytronics-dolphin-plus)** instead.  
+> **This repo** is only for robots that pair and are controlled in the **original MyDolphin** app (typically **2.x**). Do not install both integrations unless you own two different robots.
+
+---
+
+## Which integration do I need?
+
+Pick the integration that matches the app on your phone — not whether the power supply has a Wi‑Fi LED.
+
+| You use this app on your phone | Install this integration | BLE protocol (simplified) |
+|--------------------------------|--------------------------|---------------------------|
+| **MyDolphin** (older app, ~2.x) | **This repo** — [ha-maytronics-dolphin](https://github.com/randrcomputers/ha-maytronics-dolphin) | Texas Instruments style GATT **`FFF0`**, 19-byte commands |
+| **MyDolphin Plus** (current app, 3.x) | **[ha-maytronics-dolphin-plus](https://github.com/randrcomputers/ha-maytronics-dolphin-plus)** | Plus IoT SDK (`0xAB` frames), Nordic UART and/or **`fd5abba0`** IoT GATT |
+
+### This integration (legacy) — typical robots
+
+- **Bluetooth-only** Dolphins sold for the **original MyDolphin** app
+- Many **older PS / wired power-supply** units where the app never migrated to “Plus”
+- Units that show GATT service **`0000fff0-...`** (or `FFF0`) in nRF Connect / HA Bluetooth
+- Examples community testers report on this integration: **Triton PS Plus** and similar **pre–Plus-app** BLE models
+
+### Not this integration — use Plus repo instead
+
+- Any robot you set up or daily-drive in **MyDolphin Plus**
+- **E35i**, **IoT230**, and other **new IoT power supplies** that advertise **`fd5abba0`** instead of `FFF0`
+- Robots where you want **Wi‑Fi / cloud** features from the Plus app (this integration is **BLE only** and does not replace Plus cloud control)
+
+### Quick check in Home Assistant
+
+1. Wake the robot and open **Settings → Devices & services → Bluetooth**.
+2. Select the Dolphin / power supply.
+3. **Advertised services include `FFF0`** → this integration.  
+   **Only `fd5abba0` / `6e400001` (Nordic UART)** → [Plus integration](https://github.com/randrcomputers/ha-maytronics-dolphin-plus).
+
+When in doubt, open the app store on your phone: if the installed app is **“MyDolphin Plus”**, use the Plus repo.
 
 ---
 
@@ -246,9 +281,28 @@ logger:
 
 ## Supported hardware
 
-Built and tested against **MyDolphin Android app 2.3.19** packet layouts (power on `fff8`, **PS_State** command `13` on `fffa` / `fff9`). Many Dolphin models using service **FFF0** work; some characteristics may differ — open an issue with model name and logs.
+This integration targets **older Bluetooth-only Dolphins** that speak the **MyDolphin (2.x)** wire protocol. It was built and tested against **MyDolphin Android app 2.3.19** packet layouts:
+
+| Item | Detail |
+|------|--------|
+| **GATT service** | `FFF0` (full UUID `0000fff0-0000-1000-8000-00805f9b34fb`) |
+| **Power commands** | 19-byte writes to characteristic **`FFF8`** (`Startup` / `Shutdown`) |
+| **Status** | **`PS_State`** (command `13`) via **`FFFA`** / **`FFF9`** |
+| **App** | **MyDolphin** — not MyDolphin Plus |
+
+Many Dolphin models using service **FFF0** work; some optional characteristics differ by firmware. If your unit only appears with **Plus** services (`fd5abba0`, `6e400001`), it belongs on **[ha-maytronics-dolphin-plus](https://github.com/randrcomputers/ha-maytronics-dolphin-plus)** instead.
 
 **Firmware update / OTA** (`fffb`) is intentionally not exposed.
+
+### Relationship to newer hardware
+
+| Generation | App | This integration |
+|------------|-----|------------------|
+| Older BLE-only PS / robot | MyDolphin 2.x | **Yes** — primary audience |
+| Current IoT / Wi‑Fi PS (E35i, IoT230, …) | MyDolphin Plus 3.x | **No** — use Plus repo |
+| Plus app robot still on BLE mode | MyDolphin Plus 3.x | **No** — different framing and transports |
+
+Open an issue with **model name**, **which app you use**, and **Bluetooth service UUIDs** if you are unsure which repo fits.
 
 ---
 
@@ -261,4 +315,5 @@ Maytronics®, Dolphin®, and MyDolphin® are trademarks of their respective owne
 ## Links
 
 - **Issues:** [GitHub Issues](https://github.com/randrcomputers/ha-maytronics-dolphin/issues)
+- **MyDolphin Plus / newer robots:** [ha-maytronics-dolphin-plus](https://github.com/randrcomputers/ha-maytronics-dolphin-plus)
 - **Pool Cleaner Card:** [ha-pool-cleaner-card](https://github.com/randrcomputers/ha-pool-cleaner-card)
