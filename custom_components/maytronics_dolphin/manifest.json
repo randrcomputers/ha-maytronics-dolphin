@@ -4,10 +4,15 @@
   "codeowners": ["@randrcomputers"],
   "config_flow": true,
   "dependencies": ["bluetooth"],
+  "bluetooth": [
+    {
+      "service_uuid": "0000fff0-0000-1000-8000-00805f9b34fb"
+    }
+  ],
   "documentation": "https://github.com/randrcomputers/ha-maytronics-dolphin",
   "integration_type": "device",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/randrcomputers/ha-maytronics-dolphin/issues",
   "requirements": ["bleak-retry-connector>=3.0.0"],
-  "version": "1.16.0"
+  "version": "1.17.0"
 }

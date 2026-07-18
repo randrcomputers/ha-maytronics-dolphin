@@ -21,10 +21,12 @@ from .const import (
     CONF_NAME,
     DATA_BLE_SESSION,
     DATA_COORDINATOR,
+    DATA_SCHEDULE,
     DOMAIN,
 )
 from .coordinator import DolphinCoordinator
 from .protocol import BTCommandType, build_bt_command_19
+from .schedule import DolphinScheduleManager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -114,10 +116,17 @@ class DolphinPowerSwitch(CoordinatorEntity, _DolphinBaseSwitch):
         self._pending_target = True
         self.async_write_ha_state()
         try:
-            await self._send(build_bt_command_19(BTCommandType.STARTUP))
+            payload = build_bt_command_19(BTCommandType.STARTUP)
+            _LOGGER.info("Maytronics Dolphin STARTUP → fff8: %s", payload.hex())
+            await self._send(payload)
             confirmed = await self.coordinator.async_refresh_until_power(True)
-            if not confirmed:
-                _LOGGER.debug("Power on sent; PS_State not confirmed after retries")
+            if confirmed:
+                await self.coordinator.async_force_full_refresh()
+            else:
+                _LOGGER.warning(
+                    "Power on: STARTUP sent but PS_State did not reach ON "
+                    "(still off/hold — robot may not have started)"
+                )
         finally:
             self._pending_target = None
             self.async_write_ha_state()
@@ -126,7 +135,18 @@ class DolphinPowerSwitch(CoordinatorEntity, _DolphinBaseSwitch):
         self._pending_target = False
         self.async_write_ha_state()
         try:
-            await self._send(build_bt_command_19(BTCommandType.SHUTDOWN))
+            schedule: DolphinScheduleManager | None = (
+                self.hass.data.get(DOMAIN, {})
+                .get(self._entry.entry_id, {})
+                .get(DATA_SCHEDULE)
+            )
+            if schedule is not None:
+                await schedule.async_abort_timed_run(
+                    "power_switch_off", send_shutdown=False
+                )
+            payload = build_bt_command_19(BTCommandType.SHUTDOWN)
+            _LOGGER.info("Maytronics Dolphin SHUTDOWN → fff8: %s", payload.hex())
+            await self._send(payload)
             confirmed = await self.coordinator.async_refresh_until_power(False)
             if not confirmed:
                 _LOGGER.debug("Power off sent; PS_State not confirmed after retries")

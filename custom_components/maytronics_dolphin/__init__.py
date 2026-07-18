@@ -116,6 +116,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         DATA_JOY: {"x": 0, "y": 0},
         DATA_CARD_SUB: 4,
     }
+
+    @callback
+    def _on_coordinator_update() -> None:
+        hass.async_create_task(schedule.async_watch_power_state())
+
+    entry.async_on_unload(coordinator.async_add_listener(_on_coordinator_update))
+
     async_register_services(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 

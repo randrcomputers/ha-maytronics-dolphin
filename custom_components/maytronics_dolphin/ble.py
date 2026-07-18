@@ -41,6 +41,29 @@ def _has_mydolphin_service(si: BluetoothServiceInfoBleak) -> bool:
     return SERVICE_UUID.lower() in _service_uuids_lower(si)
 
 
+def is_mydolphin_service_info(si: BluetoothServiceInfoBleak) -> bool:
+    """True when advertisement includes MyDolphin GATT service ``FFF0``."""
+    return _has_mydolphin_service(si)
+
+
+def async_list_discovered_dolphins(
+    hass: HomeAssistant, *, connectable: bool = True
+) -> list[BluetoothServiceInfoBleak]:
+    """Return FFF0 advertisers, TI manufacturer preferred, strongest RSSI first."""
+    candidates: list[tuple[bool, int, BluetoothServiceInfoBleak]] = []
+    for si in bluetooth.async_discovered_service_info(hass, connectable=connectable):
+        if not _has_mydolphin_service(si):
+            continue
+        has_ti = _MANUFACTURER_ID_TEXAS_INSTRUMENTS in si.manufacturer_data
+        try:
+            rssi = int(si.rssi) if si.rssi is not None else -999
+        except (TypeError, ValueError):
+            rssi = -999
+        candidates.append((has_ti, rssi, si))
+    candidates.sort(key=lambda row: (row[0], row[1]), reverse=True)
+    return [row[2] for row in candidates]
+
+
 def _ble_device_from_scanners(hass: HomeAssistant, addr: str) -> BLEDevice | None:
     """Live per-scanner caches — sometimes populated when merged history is empty."""
     best: tuple[int, BLEDevice] | None = None

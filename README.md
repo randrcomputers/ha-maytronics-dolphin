@@ -1,58 +1,24 @@
-# Maytronics Dolphin (BLE) for Home Assistant
+# Maytronics Dolphin Plus (BLE) for Home Assistant
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 
-Community integration for **older Maytronics Dolphin** pool robots that use the **legacy MyDolphin** app and the classic **Bluetooth-only** GATT protocol (service `FFF0`, commands on `FFF8` / `FFF9` / `FFFA`). Control power, read cleaner status, schedules, and optional advanced commands — all **locally over BLE**, with no Maytronics cloud account.
+Community integration for **Maytronics Dolphin** robots paired with the **MyDolphin Plus** app (v3.x). Control power and read status locally over Bluetooth — no cloud account required for BLE control.
 
-> **Using the MyDolphin Plus app (v3.x)?** That is a **different** robot generation and BLE stack. Use **[ha-maytronics-dolphin-plus](https://github.com/randrcomputers/ha-maytronics-dolphin-plus)** instead.  
-> **This repo** is only for robots that pair and are controlled in the **original MyDolphin** app (typically **2.x**). Do not install both integrations unless you own two different robots.
+> **Not the right integration?** Robots using the older **MyDolphin** app (GATT service `FFF0`) should use the legacy component in this monorepo: [`custom_components/maytronics_dolphin`](custom_components/maytronics_dolphin) (see its [README](custom_components/maytronics_dolphin/README.md)). The two integrations are separate; install only the one that matches your app.
+
+> **Legacy changelog (1.17.0):** BLE auto-discovery + device picker; schedule sensor values `active` / `scheduled` / `off`; timed runs abort on manual Power off or unexpected `PS_State` OFF and require confirmed power after STARTUP. Protocol notes: [PROTOCOL.md](custom_components/maytronics_dolphin/PROTOCOL.md).
+
 
 ---
 
-## Which integration do I need?
+## What you get (v0.1.0)
 
-Pick the integration that matches the app on your phone — not whether the power supply has a Wi‑Fi LED.
-
-| You use this app on your phone | Install this integration | BLE protocol (simplified) |
-|--------------------------------|--------------------------|---------------------------|
-| **MyDolphin** (older app, ~2.x) | **This repo** — [ha-maytronics-dolphin](https://github.com/randrcomputers/ha-maytronics-dolphin) | Texas Instruments style GATT **`FFF0`**, 19-byte commands |
-| **MyDolphin Plus** (current app, 3.x) | **[ha-maytronics-dolphin-plus](https://github.com/randrcomputers/ha-maytronics-dolphin-plus)** | Plus IoT SDK (`0xAB` frames), Nordic UART and/or **`fd5abba0`** IoT GATT |
-
-### This integration (legacy) — typical robots
-
-- **Bluetooth-only** Dolphins sold for the **original MyDolphin** app
-- Many **older PS / wired power-supply** units where the app never migrated to “Plus”
-- Units that show GATT service **`0000fff0-...`** (or `FFF0`) in nRF Connect / HA Bluetooth
-- Examples community testers report on this integration: **Triton PS Plus** and similar **pre–Plus-app** BLE models
-
-### Not this integration — use Plus repo instead
-
-- Any robot you set up or daily-drive in **MyDolphin Plus**
-- **E35i**, **IoT230**, and other **new IoT power supplies** that advertise **`fd5abba0`** instead of `FFF0`
-- Robots where you want **Wi‑Fi / cloud** features from the Plus app (this integration is **BLE only** and does not replace Plus cloud control)
-
-### Quick check in Home Assistant
-
-1. Wake the robot and open **Settings → Devices & services → Bluetooth**.
-2. Select the Dolphin / power supply.
-3. **Advertised services include `FFF0`** → this integration.  
-   **Only `fd5abba0` / `6e400001` (Nordic UART)** → [Plus integration](https://github.com/randrcomputers/ha-maytronics-dolphin-plus).
-
-When in doubt, open the app store on your phone: if the installed app is **“MyDolphin Plus”**, use the Plus repo.
-
----
-
-## What you get
-
-- **Power on/off** from Home Assistant (same commands as the MyDolphin app)
-- **Cleaner state** sensor (`off`, `on`, `hold`, `programming`, `self_test`)
-- **Cleaning active** and diagnostic **PS state data OK** binary sensors
-- **Autoclean** switch and extra **buttons** (home, reset faults, joystick, and more)
-- **Built-in daily schedule** (v1.14.0+) — one or two start times per day, optional **Pool Cleaner Card** UI (no YAML helpers)
-- **Short BLE sessions** — connect only for each command or status poll, then disconnect (reduces “stuck Bluetooth light / frozen robot” reports)
-- Works with the optional **[Pool Cleaner Card](https://github.com/randrcomputers/ha-pool-cleaner-card)** Lovelace frontend
-
-
+| Feature | Status |
+|---------|--------|
+| **Power on/off** | `start_up_dolphin` / `shutdown_dolphin` (IoT GATT or Nordic UART, auto-detected) |
+| **Status poll** | `system_status` → SM state, MU state, cleaning mode |
+| **Short BLE sessions** | Connect per command/poll, then disconnect (same pattern as the legacy integration) |
+| Schedule, autoclean, joystick, Pool Cleaner Card | Not yet — BLE MVP |
 
 ---
 
@@ -60,260 +26,132 @@ When in doubt, open the app store on your phone: if the installed app is **“My
 
 | Requirement | Notes |
 |-------------|--------|
-| **Home Assistant 2024.1+** | HAOS, Supervised, Container, Core |
-| **Bluetooth** | Built-in adapter **or** [Bluetooth proxy](https://www.home-assistant.io/integrations/bluetooth/) (ESPHome, Shelly, etc.) **near the pool** |
-| **Robot MAC address** | From **Settings → Devices & services → Bluetooth**, or nRF Connect |
-| **One BLE client at a time** | Close **MyDolphin** on your phone while testing HA |
+| **Home Assistant 2024.1+** | HAOS, Supervised, Container, or Core |
+| **Bluetooth** | See **Bluetooth & proxies** below — IoT PSU models need a **local BlueZ adapter on the HA host** |
+| **Robot BLE MAC** | From **Settings → Devices & services → Bluetooth**, or nRF Connect |
+| **MyDolphin Plus app** | Close the app on your phone while HA is controlling the robot |
+| **Robot class** | **IoT / PS Plus** profile (default). POP/buoy profiles are experimental |
 
 ---
 
 ## Install (HACS)
 
-1. Install [HACS](https://hacs.xyz/) if you have not already.
+1. Install [HACS](https://hacs.xyz/) if needed.
 2. HACS → **Integrations** → **⋮** → **Custom repositories**
-3. Add repository: `https://github.com/randrcomputers/ha-maytronics-dolphin`  
-   Category: **Integration**
-4. Open the new repo → **Download** → restart Home Assistant
-5. **Settings → Devices & services → Add integration → Maytronics Dolphin (BLE)**
-6. Enter the robot **Bluetooth MAC** (format `AA:BB:CC:DD:EE:FF`) and an optional friendly name.
+3. Add: `https://github.com/randrcomputers/ha-maytronics-dolphin-plus` — category **Integration**
+4. Download → restart Home Assistant
+5. **Settings → Devices & services → Add integration → Maytronics Dolphin Plus (BLE)**
+6. Enter the **Bluetooth MAC** and optional name.
 
-This integration is **not** in the default HACS store; the custom repository URL above is how everyone installs it today.
+### Manual install
+
+Copy `custom_components/maytronics_dolphin_plus` into your HA `config/custom_components/` folder and restart.
 
 ---
 
-## Pool Cleaner Card (optional)
+## Setup options
 
-For a dashboard card with robot/PSU artwork, status pill, power button, and **schedule panel**:
+During setup:
 
-1. Install **[Pool Cleaner Card](https://github.com/randrcomputers/ha-pool-cleaner-card)** (HACS → **Frontend** → custom repo) — use a build that supports integration schedule (integration **v1.14.0+**).
-2. Add card → **Pool Cleaner Card**.
-3. Choose your **Dolphin device** — entities auto-fill.
-4. Enable **Show schedule panel**. Leave **Schedule backend** on **Auto** (uses integration schedule; no YAML package).
+| Field | Default | When to change |
+|-------|---------|----------------|
+| **Protocol profile** | IoT / PS Plus | POP cordless or buoy models (experimental) |
+| **BLE transport** | Auto-detect (recommended) | **IoT GATT** for E35i / IoT230 PS; **Nordic UART** for some Liberty-class units |
 
-| Card field | Integration entity |
-|------------|-------------------|
-| Power switch | **Power** |
-| Cleaner state | **Cleaner state** |
-| Cleaning active | **Cleaning active** (optional) |
-| BLE OK / connected | **Leave blank** (recommended) or **PS state data OK** (see below) |
-| Schedule | **Auto** + Dolphin device (v1.14.0+) — no helper mapping |
+**Settings → Configure** (after install):
 
-**Tip:** Leave **BLE OK / connected** empty. The card then treats “reachable” as the power entity not being `unavailable`. Mapping **PS state data OK** makes the corner icon mean “last status poll succeeded,” which often goes dark while the robot is still fine.
+| Option | Default | Description |
+|--------|---------|-------------|
+| **State poll interval** | 45 s | How often `system_status` is read. `0` = commands only. |
+| **Periodic BLE release** | 120 s | Safety disconnect if a session is still held. `0` = off. |
+| **IoT command backend** | Auto | BlueZ dongle, ESPHome proxy, or auto-fallback |
+| **ESPHome proxy device** | — | Required for ESPHome backend; flash `esphome/dolphin-plus-ble-proxy.yaml.example` first |
 
 ---
 
 ## Entities
 
-All entities are created on one **device** per configured robot.
-
-### Everyday use
-
 | Entity | Type | Purpose |
 |--------|------|---------|
-| **Power** | Switch | Turn robot on (**Startup**) / off (**Shutdown**) via GATT `fff8` |
-| **Cleaner state** | Sensor | Text status from **PS_State** poll |
-| **Clean program** | Sensor | Selected mode from **Working_Clean_Mode** (`regular`, `ultraclean`, `floor_only`*, `waterline`, …) |
-| **Cleaning surface** | Sensor | Best-effort **floor** / **wall** / **waterline** while running (see below) |
-| **Working status** | Sensor | Stabilized `at_work` / `finished` / `fault` (v0.7.6+ holds last good value through brief read gaps; see attributes `working_status_raw`, `working_status_held`) |
-| **Cleaning active** | Binary sensor | On when state is anything except `off` |
-| **Cleaner schedule** | Sensor | Stored schedule state (`on`/`off`) + attributes for card (v1.14.0+) |
-| **Autoclean** | Switch | Enable/disable autoclean command (not synced from robot state) |
+| **Power** | Switch | Turn robot on / off |
+| **SM state** | Sensor | Raw state machine byte (`0` ≈ off) |
+| **MU state** | Sensor | Motor unit state byte |
+| **Cleaning mode** | Sensor | Mode byte from status packet |
 
-### Diagnostics
-
-| Entity | Type | Purpose |
-|--------|------|---------|
-| **PS state data OK** | Binary sensor | On when the last poll returned a parseable **PS_State** |
-| **Status raw (fffc)** | Sensor | Optional hex read (may be empty on some models) |
-| **Status raw (fffd)** | Sensor | Optional hex read (may be empty on some models) |
-
-### Advanced (buttons & helpers)
-
-Quit RC mode, Reset faults, Home, Reset dolphin, Reset filter indication, Ping, Wall sensor poll, LED test, Joystick X/Y + Send joystick, Card test type + Run card test.
-
-When enabled in options: **Release Bluetooth** — forces disconnect if HA still holds the link.
-
-### Built-in cleaner schedule (v1.14.0+)
-
-Optional **daily schedule** stored inside the integration (no YAML helpers or automations). Used automatically by the **Pool Cleaner Card** when a **Dolphin device** is selected and **Schedule backend** is **Auto**.
-
-| Feature | Detail |
-| --- | --- |
-| **Run 1** | Start time + 1 h or 2 h + **own weekdays** when master schedule is **on** |
-| **Run 2** | Optional second daily time + duration + **own weekdays** (own on/off on the card) |
-| **Days** | Per run: `run1_days` and `run2_days` as `0`–`6` (Mon–Sun). Legacy `days` in storage migrates to both. |
-| **Persistence** | Saved in `.storage/maytronics_dolphin.schedule.<entry_id>` — survives HA restart |
-| **Time changes** | Apply immediately — no automation reload (minute tick reads stored times) |
-| **Repeats** | Each enabled run fires **once per day** on selected days while HA is running |
-
-**Sensor:** `sensor.<name>_cleaner_schedule` — state `on`/`off`; attributes:
-
-| Attribute | Meaning |
-| --- | --- |
-| `run1_days` | e.g. `0,1,2,3,4,5,6` |
-| `run2_days` | e.g. `0,6` (weekends only, etc.) |
-| `run1_time` | `HH:MM` (24h) |
-| `run1_duration_minutes` | `60` or `120` |
-| `run2_enabled` | `true` / `false` |
-| `run2_time` | `HH:MM` |
-| `run2_duration_minutes` | `60` or `120` |
-
-**Services** (Developer tools → Actions):
-
-| Service | Purpose |
-| --- | --- |
-| `maytronics_dolphin.set_schedule` | Update any schedule fields (`device_id` required) |
-| `maytronics_dolphin.run_timed` | Power on → wait → off (`duration_minutes`: 60 or 120) |
-
-Example `set_schedule` data:
-
-```yaml
-device_id: YOUR_DEVICE_ID
-enabled: true
-run1_days: "0,1,2,3,4,5,6"
-run1_time: "08:09"
-run1_duration_minutes: 120
-run2_enabled: true
-run2_days: "0,6"
-run2_time: "17:00"
-run2_duration_minutes: 60
-```
-
-**Migration:** If you already use the Pool Cleaner Card **YAML package** ([`pool-cleaner-schedule.yaml`](https://github.com/randrcomputers/ha-pool-cleaner-card/blob/main/examples/pool-cleaner-schedule.yaml)), **disable those automations** or set the card **Schedule backend** to **helpers** — otherwise **both** schedulers may run. New setups should use **integration schedule only**.
+Power display follows `sm_state` when polls succeed; the switch may show **assumed** state briefly after a tap until the next poll confirms.
 
 ---
 
-## How status and power work
+## How this differs from the legacy integration
 
-Understanding this avoids “wrong” dashboard readings:
+| | **This repo** (Plus) | **[ha-maytronics-dolphin](https://github.com/randrcomputers/ha-maytronics-dolphin)** (legacy) |
+|---|---|---|
+| App | MyDolphin **Plus** 3.x | MyDolphin 2.x |
+| BLE transport | Nordic UART / Plus IoT frames | GATT `FFF0` / `FFF8` |
+| Protocol | Plus IoT SDK (`0xAB` frames) | 19-byte `BTCommand` |
+| Typical robots | Triton PS Plus, Wi-Fi/IoT generation | Older BLE-only Dolphins |
 
-1. **Power switch**  
-   Sends a 19-byte command immediately. Display follows **PS_State** when a poll succeeds; otherwise Home Assistant may show **assumed** on/off from your last tap.
-
-2. **Cleaner state**  
-   Updates only after a successful **PS_State** read (about every poll interval). Can show `unknown` between polls or after a failed read.
-
-3. **PS state data OK**  
-   Means “the status **read** worked,” not “Bluetooth is connected like the phone app.” It can be **off** while **Power** commands still work.
-
-4. **Cleaning active**  
-   On for `hold`, `programming`, and `self_test` as well as `on` — not only “actively cleaning the pool.”
-
-5. **Clean program**  
-   The **program you selected** in the app (e.g. `regular`, `ultraclean`, `waterline`) — **not** the same as live surface position.
-
-6. **Cleaning surface** (v0.7.2+)  
-   While the robot is **on** (PS_State not `off`), the integration also reads **InternalParamsRead** (`fffd`, 132-byte block) and infers surface:
-
-   | Value | Meaning |
-   |-------|---------|
-   | `floor` | Floor-only program (APK marker: climb byte **234** + clean byte **1**) or regular/fast-style programs |
-   | `waterline` | Waterline program |
-   | `wall` | **Experimental** — ultraclean + internal **phase byte** = 1 (offset 30 in APK layout; confirm on your unit via entity attributes) |
-   | `unknown` | Ultraclean or other modes where live surface is not decoded yet |
-   | `unavailable` | Robot off / no internal read |
-
-   The MyDolphin app does **not** expose a dedicated “on wall now” label in BLE; wall/floor appears mainly as **fault** text (“Wall/floor sensor”). If **Cleaning surface** stays `unknown` during ultraclean, check attributes **`phase_byte`** / **`motor_aux_byte`** in Developer tools and open an issue with those values from floor vs wall.
-
-\* In the APK, `floor_only` shares wire code **1** with `regular`; **Cleaning surface** uses the internal **234** marker to detect floor-only anyway.
-
-**Card shows “Unknown”** → **Cleaner state** is `unknown` (HA lost a good status read). That does **not** always mean the robot is locked up. Check the physical unit: still running? BT LED stuck on? Responds to **Power**?
+You do **not** need both integrations unless you own two different robots.
 
 ---
 
-## Integration options
+## Bluetooth & proxies (v0.1.9+)
 
-**Settings → Devices & services → Maytronics Dolphin (BLE) → Configure**
+IoT PSU robots need commands sent via a **mirrored GATT server** (`fd5abba0` / `fd5abba1` notify), not a normal client write. Payloads are ASCII envelopes (`03:<hex>`), matching the Plus app / proven ESPHome implementations.
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| **State poll interval (PS_State)** | `45` s | How often HA reads status. Use `60`–`120` for stability; `0` = commands only. |
-| **Periodic BLE release** | `120` s | Disconnect if still connected (safety net). `0` = off. Ignored when persistent session is on. |
-| **Persistent BLE session** | Off | **Experimental:** keep GATT connected (faster toggles; may wedge robot). |
-| **Responsive mode** | Off | Faster polling when active — **leave off** if power/schedule feel unreliable (v1.16.0+ gives commands priority either way). |
-| **Show Release Bluetooth button** | On | Adds **Release Bluetooth** on the device |
-| **Diagnostic fffc/fffd reads during poll** | Off | Extra GATT reads each poll — leave off unless debugging |
+| Backend | When to use | Setup |
+|---------|-------------|--------|
+| **Auto** (default) | Try dongle first, fall back to ESPHome | Configure ESPHome proxy if you use proxies |
+| **Local BlueZ** | USB or built-in Bluetooth on the HA host | None — works on HA OS with a pool-range dongle |
+| **ESPHome proxy** | Bluetooth proxy only (no HA dongle) | Flash [`esphome/dolphin-plus-ble-proxy.yaml.example`](esphome/dolphin-plus-ble-proxy.yaml.example) on your pool ESP32 |
 
-By default HA does **not** keep a permanent Bluetooth connection (connect → act → disconnect each time). Enable **Persistent BLE session** only if you want to test an always-on link.
+**Proxy setup (summary):**
+
+1. Add `esp32_ble_server` + `dolphin_iot_notify` API action to your pool ESP32 (use the example YAML).
+2. Keep `bluetooth_proxy: active: true` on the same device.
+3. In HA: **Dolphin Plus → Configure → IoT command backend → ESPHome proxy GATT server** and select the ESPHome device.
+
+| Setup | IoT PSU (E35i / IoT230) | Nordic UART (`6e400001`) |
+|-------|-------------------------|---------------------------|
+| HA dongle in range of PSU | Supported (BlueZ backend) | Supported |
+| ESPHome proxy with dolphin-plus firmware | Supported (ESPHome backend) | Usually fine via proxy |
+| Stock proxy only, no dolphin-plus firmware | Not supported | May work |
 
 ---
 
 ## Bluetooth tips
 
-### Robot not found
-
-1. **Settings → Devices & services → Bluetooth** — confirm the Dolphin appears when the robot is awake and in range.
-2. **Close MyDolphin** on the phone; another client can block or delay GATT.
-3. Put a **Bluetooth proxy** in the pool area (ESPHome `bluetooth_proxy` is a common choice).
-4. After HA restarts, the first action may wait up to **25 seconds** for a connectable advertisement.
-
-### MAC address confusion
-
-BLE listings sometimes show a **name** like `22554C074D50` (MAC digits without colons) while the **connectable address** differs (e.g. `e0:ff:f1:41:12:61`). Use the address from the Bluetooth device details or tooltip. The integration can resolve some name/MAC mismatches when the MyDolphin **FFF0** service is visible.
-
-### If the robot “freezes” (BT LED stuck on)
-
-1. Tap **Release Bluetooth** (if shown) or reload the integration.
-2. **Power-cycle** the robot (dock/unplug) once.
-3. Increase **State poll** to **60–120 s** or set **0** temporarily.
-4. Keep **Diagnostic fffc/fffd** disabled unless you are capturing logs.
-5. Do not run **MyDolphin** and HA control at the same time during testing.
-
-### Debug logging
-
-**Settings → System → Logs** → enable debug for:
+1. Confirm the robot appears under **Settings → Bluetooth** when awake and in range.
+2. **Close MyDolphin Plus** on your phone — only one BLE client at a time.
+3. For **IoT PSU** with a proxy: flash the [dolphin-plus GATT add-on](esphome/dolphin-plus-gatt-addon.yaml) — **SCREEK BP2-POE:** see [screek-bp2-poe-dolphin-plus.README.md](esphome/screek-bp2-poe-dolphin-plus.README.md) — then select the ESP in integration options.
+4. For **IoT PSU** with a dongle: use **Auto** or **Local BlueZ**; the adapter must be in range of the PSU.
+5. For **Nordic UART** robots, a standard [Bluetooth proxy](https://www.home-assistant.io/integrations/bluetooth/) is fine.
+6. If power works but status stays unknown, open an issue with debug logs:
 
 ```yaml
 logger:
   default: info
   logs:
-    custom_components.maytronics_dolphin: debug
+    custom_components.maytronics_dolphin_plus: debug
 ```
-
----
-
-## Setup notes
-
-- **Manual setup only** — enter the MAC in the config flow. Automatic Bluetooth discovery is disabled to avoid pairing random FFF0 devices.
-- If you previously added wrong devices from an older discovery build, remove them under **Devices & services** and keep only your real Dolphin.
 
 ---
 
 ## Supported hardware
 
-This integration targets **older Bluetooth-only Dolphins** that speak the **MyDolphin (2.x)** wire protocol. It was built and tested against **MyDolphin Android app 2.3.19** packet layouts:
+Protocol derived from **MyDolphin Plus Android 3.4** (`com.maytronics.app`). Tested framing matches shipped `ble_iot_protocol.json`. Real-world confirmation on specific models is welcome via [issues](https://github.com/randrcomputers/ha-maytronics-dolphin-plus/issues).
 
-| Item | Detail |
-|------|--------|
-| **GATT service** | `FFF0` (full UUID `0000fff0-0000-1000-8000-00805f9b34fb`) |
-| **Power commands** | 19-byte writes to characteristic **`FFF8`** (`Startup` / `Shutdown`) |
-| **Status** | **`PS_State`** (command `13`) via **`FFFA`** / **`FFF9`** |
-| **App** | **MyDolphin** — not MyDolphin Plus |
-
-Many Dolphin models using service **FFF0** work; some optional characteristics differ by firmware. If your unit only appears with **Plus** services (`fd5abba0`, `6e400001`), it belongs on **[ha-maytronics-dolphin-plus](https://github.com/randrcomputers/ha-maytronics-dolphin-plus)** instead.
-
-**Firmware update / OTA** (`fffb`) is intentionally not exposed.
-
-### Relationship to newer hardware
-
-| Generation | App | This integration |
-|------------|-----|------------------|
-| Older BLE-only PS / robot | MyDolphin 2.x | **Yes** — primary audience |
-| Current IoT / Wi‑Fi PS (E35i, IoT230, …) | MyDolphin Plus 3.x | **No** — use Plus repo |
-| Plus app robot still on BLE mode | MyDolphin Plus 3.x | **No** — different framing and transports |
-
-Open an issue with **model name**, **which app you use**, and **Bluetooth service UUIDs** if you are unsure which repo fits.
+**WiFi / cloud control** is out of scope for this integration (Plus app uses AWS IoT for Wi-Fi path). For cloud Wi-Fi robots see community projects such as [dolphin-robot](https://github.com/sh00t2kill/dolphin-robot) / `mydolphin_plus`.
 
 ---
 
 ## Legal
 
-Maytronics®, Dolphin®, and MyDolphin® are trademarks of their respective owners. This project is independent community software with no endorsement from Maytronics.
+Maytronics®, Dolphin®, and MyDolphin® are trademarks of their respective owners. Independent community software — not endorsed by Maytronics.
 
 ---
 
 ## Links
 
-- **Issues:** [GitHub Issues](https://github.com/randrcomputers/ha-maytronics-dolphin/issues)
-- **MyDolphin Plus / newer robots:** [ha-maytronics-dolphin-plus](https://github.com/randrcomputers/ha-maytronics-dolphin-plus)
-- **Pool Cleaner Card:** [ha-pool-cleaner-card](https://github.com/randrcomputers/ha-pool-cleaner-card)
+- **Issues:** [github.com/randrcomputers/ha-maytronics-dolphin-plus/issues](https://github.com/randrcomputers/ha-maytronics-dolphin-plus/issues)
+- **Legacy BLE integration:** [ha-maytronics-dolphin](https://github.com/randrcomputers/ha-maytronics-dolphin)

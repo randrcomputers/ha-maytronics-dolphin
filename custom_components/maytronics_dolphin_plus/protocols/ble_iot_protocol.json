@@ -1,0 +1,960 @@
+﻿{
+  "musn": "B9502TQM",
+  "sm_destination": "62",
+  "message_pattern": {
+    "sop_preamble": {
+      "constant": "ab",
+      "start": 0,
+      "end": 1
+    },
+    "src": {
+      "constant": "03",
+      "start": 1,
+      "end": 2
+    },
+    "destination": {
+      "start": 2,
+      "end": 4
+    },
+    "opcode": {
+      "start": 4,
+      "end": 5
+    },
+    "data_length": {
+      "start": 5,
+      "end": 7
+    },
+    "checksum": {
+      "constant": "checksum",
+      "length": 2
+    }
+  },
+  "commands": {
+    "timezone": {
+      "init": 0,
+      "ondemand": false,
+      "opcode": "c2",
+      "destination": "FFFE",
+      "shadow_dest": "SM",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 2,
+        "response_length": 0
+      }
+    },
+    "timezone_name": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "c2",
+      "destination": "FFFE",
+      "shadow_dest": "AWS",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 2,
+        "response_length": 0
+      }
+    },
+    "real_time_clock": {
+      "init": 1,
+      "ondemand": false,
+      "opcode": "09",
+      "destination": "FFF9",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 4,
+        "response_length": 0
+      }
+    },
+    "pws_features": {
+      "init": 5,
+      "ondemand": false,
+      "opcode": "1a",
+      "destination": "FFFA",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 0,
+        "response_length": 3,
+        "map": {
+          "network_sensing": {
+            "data_type": "bool",
+            "start": 0,
+            "end": 1
+          },
+          "inwat": {
+            "data_type": "bool",
+            "start": 1,
+            "end": 2
+          },
+          "cellular": {
+            "data_type": "bool",
+            "start": 2,
+            "end": 3
+          },
+          "ota": {
+            "data_type": "bool",
+            "start": 3,
+            "end": 4
+          },
+          "psc": {
+            "data_type": "bool",
+            "start": 4,
+            "end": 5
+          }
+        }
+      }
+    },
+    "get_sm_data": {
+      "init": 2,
+      "ondemand": true,
+      "opcode": "02",
+      "destination": "FFFD",
+      "pkfNeeded": false,
+      "need_to_collect_data": true,
+      "data": {
+        "request_length": 3,
+        "response_length": 256,
+        "map": {
+          "timezone": {
+            "data_type": "bits",
+            "start": 63,
+            "end": 65
+          },
+          "quick_features": {
+            "data_type": "bits",
+            "start": 65,
+            "end": 66
+          },
+          "pws_sw_version": {
+            "data_type": "bits",
+            "start": 39,
+            "end": 42
+          },
+          "weekly": {
+            "data_type": "bits",
+            "start": 72,
+            "end": 108
+          },
+          "trigger_by": {
+            "data_type": "int",
+            "start": 213,
+            "end": 214
+          },
+          "delay": {
+            "data_type": "bits",
+            "start": 108,
+            "end": 114
+          },
+          "cycle_times": {
+            "data_type": "bits",
+            "start": 217,
+            "end": 237
+          },
+          "wifi_ssid": {
+            "data_type": "bits",
+            "start": 118,
+            "end": 151
+          }
+        }
+      }
+    },
+    "get_mu_data": {
+      "init": 3,
+      "ondemand": true,
+      "opcode": "01",
+      "destination": "FFFD",
+      "shadow_dest": "AWS",
+      "big_indian": false,
+      "pkfNeeded": false,
+      "need_to_collect_data": true,
+      "data": {
+        "request_length": 3,
+        "response_length": 256,
+        "map": {
+          "faults": {
+            "data_type": "bits",
+            "start": 0,
+            "end": 120,
+            "field_properties": {
+              "flip_array": false,
+              "fault_block_size" : 12
+            }
+          },
+          "robot_type": {
+            "data_type": "bits",
+            "start": 132,
+            "end": 134
+          },
+          "flash_write_counter": {
+            "data_type": "bits",
+            "start": 134,
+            "end": 138
+          },
+          "cycle_time": {
+            "data_type": "bits",
+            "start": 138,
+            "end": 140
+          },
+          "pcb_hours": {
+            "data_type": "bits",
+            "start": 140,
+            "end": 142
+          },
+          "pcb_minutes": {
+            "data_type": "bits",
+            "start": 142,
+            "end": 143
+          },
+          "impeller_hours": {
+            "data_type": "int",
+            "start": 143,
+            "end": 145
+          },
+          "impeller_minutes": {
+            "data_type": "int",
+            "start": 145,
+            "end": 146
+          },
+          "turn_on_count": {
+            "data_type": "bits",
+            "start": 146,
+            "end": 148
+          },
+          "not_completed_cycle": {
+            "data_type": "int",
+            "start": 148,
+            "end": 150
+          },
+          "hw_version": {
+            "data_type": "bits",
+            "start": 151,
+            "end": 152
+          },
+          "robot_sw_version_major": {
+            "data_type": "bits",
+            "start": 152,
+            "end": 153
+          },
+          "robot_sw_version_minor": {
+            "data_type": "bits",
+            "start": 153,
+            "end": 155
+          },
+          "led_1_red": {
+            "data_type": "int",
+            "start": 155,
+            "end": 156
+          },
+          "led_2_green": {
+            "data_type": "int",
+            "start": 156,
+            "end": 157
+          },
+          "led_3_blue": {
+            "data_type": "int",
+            "start": 157,
+            "end": 158
+          },
+          "leds": {
+            "data_type": "bits",
+            "start": 157,
+            "end": 158
+          },
+          "impeller_constants": {
+            "data_type": "int",
+            "start": 161,
+            "end": 162
+          },
+          "robot_driver_1": {
+            "data_type": "int",
+            "start": 162,
+            "end": 163
+          },
+          "robot_driver_2": {
+            "data_type": "int",
+            "start": 163,
+            "end": 164
+          },
+          "robot_servo_left_position_calibration": {
+            "data_type": "int",
+            "start": 164,
+            "end": 165
+          },
+          "robot_servo_center_position_calibration": {
+            "data_type": "int",
+            "start": 165,
+            "end": 166
+          },
+          "robot_servo_right_position_calibration": {
+            "data_type": "int",
+            "start": 166,
+            "end": 167
+          },
+          "clean_mode": {
+            "data_type": "bits",
+            "start": 167,
+            "end": 168
+          },
+          "program_check_sum": {
+            "data_type": "hex",
+            "start": 168,
+            "end": 170
+          },
+          "climb_period": {
+            "data_type": "hex",
+            "start": 170,
+            "end": 171
+          },
+          "max_default_delta_pressure": {
+            "data_type": "bits",
+            "start": 172,
+            "end": 174
+          },
+          "min_default_delta_pressure": {
+            "data_type": "bits",
+            "start": 174,
+            "end": 176
+          },
+          "max_delta_pressure": {
+            "data_type": "bits",
+            "start": 176,
+            "end": 178
+          },
+          "min_delta_pressure": {
+            "data_type": "bits",
+            "start": 178,
+            "end": 180
+          },
+          "delta_pressure_1": {
+            "data_type": "bits",
+            "start": 180,
+            "end": 182
+          },
+          "delta_pressure_2": {
+            "data_type": "bits",
+            "start": 182,
+            "end": 184
+          },
+          "delta_pressure_3": {
+            "data_type": "bits",
+            "start": 184,
+            "end": 186
+          },
+          "delta_pressure_4": {
+            "data_type": "bits",
+            "start": 186,
+            "end": 188
+          },
+          "reset_reason": {
+            "data_type": "bits",
+            "start": 188,
+            "end": 189
+          },
+          "supply_monitor_status": {
+            "data_type": "bits",
+            "start": 189,
+            "end": 190
+          },
+          "turn_on_counter": {
+            "data_type": "bits",
+            "start": 190,
+            "end": 192
+          },
+          "boot_sw_major": {
+            "data_type": "hex",
+            "start": 192,
+            "end": 193
+          },
+          "boot_sw_minor": {
+            "data_type": "hex",
+            "start": 193,
+            "end": 194
+          }
+        }
+      }
+    },
+
+
+    "start_pickup_mode": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "03",
+      "destination": "FFE9",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 0
+      }
+    },
+    "system_status": {
+      "init": 4,
+      "ondemand": true,
+      "opcode": "07",
+      "destination": "FFF8",
+      "shadow_dest": "AWS",
+      "pkfNeeded": false,
+      "need_to_collect_data": true,
+      "data": {
+        "request_length": 0,
+        "response_length": 53,
+        "map": {
+          "filter_state": {
+            "data_type": "hex",
+            "start": 2,
+            "end": 2
+          },
+          "cleaning_mode": {
+            "data_type": "hex",
+            "start": 3,
+            "end": 3
+          },
+          "cycle_info": {
+            "data_type": "bits",
+            "start": 4,
+            "end": 13
+          },
+          "is_smart": {
+            "data_type": "bool",
+            "start": 14,
+            "end": 14
+          },
+          "next_cycle_info": {
+            "data_type": "bits",
+            "start": 15,
+            "end": 17
+          },
+          "mu_state": {
+            "data_type": "hex",
+            "start": 0,
+            "end": 0
+          },
+          "sm_state": {
+            "data_type": "hex",
+            "start": 1,
+            "end": 1
+          },
+          "faults_code": {
+            "data_type": "hex",
+            "start": 18,
+            "end": 19
+          },
+          "faults_pcb_hours": {
+            "data_type": "hex",
+            "start": 19,
+            "end": 21
+          },
+          "faults_pcb_minutes": {
+            "data_type": "hex",
+            "start": 21,
+            "end": 22
+          },
+          "faults_cycle_counter": {
+            "data_type": "hex",
+            "start": 22,
+            "end": 24
+          },
+          "faults_value_1": {
+            "data_type": "hex",
+            "start": 24,
+            "end": 26
+          },
+          "faults_value_2": {
+            "data_type": "hex",
+            "start": 26,
+            "end": 28
+          },
+          "faults_value_3": {
+            "data_type": "hex",
+            "start": 28,
+            "end": 30
+          },
+          "cleaning_modes": {
+            "data_type": "hex",
+            "start": 30,
+            "end": 52
+          }
+        }
+      }
+    },
+    "temperature": {
+      "init": 7,
+      "ondemand": true,
+      "opcode": "09",
+      "destination": "FFF8",
+      "shadow_dest": "AWS",
+      "pkfNeeded": true,
+      "data": {
+        "request_length": 0,
+        "response_length": 10,
+        "map": {
+          "inwat_status": {
+            "data_type": "hex",
+            "start": 0,
+            "end": 0
+          },
+          "temperature": {
+            "data_type": "int16",
+            "start": 1,
+            "end": 2
+          },
+          "mesuring_during_cycle": {
+            "data_type": "hex",
+            "start": 3,
+            "end": 3
+          },
+          "measuringStatus": {
+            "data_type": "hex",
+            "start": 4,
+            "end": 4
+          },
+          "timestamp": {
+            "data_type": "hex",
+            "start": 5,
+            "end": 9
+          }
+        }
+      }
+    },
+    "start_up_dolphin": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "06",
+      "destination": "FFF8",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 0,
+        "response_length": 0
+      }
+    },
+    "shutdown_dolphin": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "05",
+      "destination": "FFF8",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 0,
+        "response_length": 0
+      }
+    },
+    "connect_to_wifi": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "cd",
+      "destination": "FFFE",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 0,
+        "response_length": 1
+      }
+    },
+    "wifi_networks_list": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "c6",
+      "destination": "FFFE",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 0,
+        "response_length": 0,
+        "map": {
+          "ssid_length": {
+            "data_type": "hex",
+            "start": 0,
+            "end": 1
+          },
+          "rssi": {
+            "data_type": "int8",
+            "start": 0,
+            "end": 1
+          },
+          "security": {
+            "data_type": "int8",
+            "start": 1,
+            "end": 2
+          },
+          "is_connected": {
+            "data_type": "bool",
+            "start": 2,
+            "end": 3
+          },
+          "data_stride": {
+            "data_type": "byte",
+            "length": 3
+          }
+        }
+      }
+    },
+    "get_nearby_wifi_networks": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "c4",
+      "destination": "FFFE",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 0,
+        "response_length": 0
+      }
+    },
+    "network_connection_status": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "de",
+      "destination": "FFFE",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 0,
+        "response_length": 0
+      }
+    },
+    "cloud_connection_status": {
+      "init": 6,
+      "ondemand": true,
+      "opcode": "df",
+      "destination": "FFFE",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 0,
+        "response_length": 1,
+        "map": {
+          "error_type": {
+            "data_type": "hex",
+            "start": 0,
+            "end": 0
+          }
+        }
+      }
+    },
+    "set_cleaning_mode": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "03",
+      "destination": "FFE9",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 0
+      }
+    },
+    "set_cycle_time": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "01",
+      "destination": "FFE9",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 2,
+        "response_length": 0
+      }
+    },
+    "set_delay_time": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "46",
+      "destination": "FFF9",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 6,
+        "response_length": 0
+      }
+    },
+    "set_weekly_timer": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "45",
+      "destination": "FFF9",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 25,
+        "response_length": 0,
+        "map": {
+          "should_repeat": {
+            "data_type": "bool",
+            "start": 0,
+            "end": 1
+          },
+          "operations_data": {
+            "data_type": "hex",
+            "start": 2,
+            "end": 37
+          },
+          "triggered_by": {
+            "data_type": "int",
+            "start": 1,
+            "end": 2
+          }
+        }
+      }
+    },
+    "set_single_day_timer": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "47",
+      "destination": "FFF9",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 7,
+        "response_length": 0
+      }
+    },
+    "set_weekly_repeat": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "45",
+      "destination": "FFF9",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 25,
+        "response_length": 0,
+        "map": {
+          "should_repeat": {
+            "data_type": "bool",
+            "start": 0,
+            "end": 1
+          },
+          "operations_data": {
+            "data_type": "hex",
+            "start": 2,
+            "end": 37
+          },
+          "triggered_by": {
+            "data_type": "int",
+            "start": 1,
+            "end": 2
+          }
+        }
+      }
+    },
+    "set_robot_leds": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "10",
+      "destination": "FFF7",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 3,
+        "response_length": 0
+      }
+    },
+    "manual_drive": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "03",
+      "destination": "FFF7",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 2,
+        "response_length": 0
+      }
+    },
+    "quit_manual_drive": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "04",
+      "destination": "FFF7",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 0,
+        "response_length": 0
+      }
+    },
+    "reset_filter_indicator": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "0a",
+      "destination": "FFF7",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 0,
+        "response_length": 0
+      }
+    },
+    "pws_production_reset": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "fc",
+      "destination": "FFFF",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 0
+      }
+    },
+    "set_inwat_params": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "0e",
+      "destination": "FFF9",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 0
+      }
+    },
+    "pws_state": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "0d",
+      "destination": "FFFA",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 0
+      }
+    },
+    "quick_features": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "0b",
+      "destination": "FFF9",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 0
+      }
+    },
+    "sync_data_amount": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "05",
+      "destination": "FFFD",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 0
+      }
+    },
+    "number_of_cycle_to_upload": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "03",
+      "destination": "FFFD",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 0
+      }
+    },
+    "get_system_data": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "04",
+      "destination": "FFFD",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 0
+      }
+    },
+    "upload_system_data": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "ff",
+      "destination": "FFFD",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 0
+      }
+    },
+    "get_location": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "aa",
+      "destination": "FFFF",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 0
+      }
+    },
+    "get_home_location": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "ab",
+      "destination": "FFFF",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 0
+      }
+    }
+  },
+  "acknowledge": {
+    "fffd": {
+      "00": "success",
+      "01": "rc_crc_error",
+      "02": "uart_robot_send_error",
+      "03": "packet_sent_to_soon",
+      "04": "invalid_cmd",
+      "05": "robot_ack_timeout",
+      "06": "robot_bad_csm"
+    },
+    "fff9": {
+      "00": "success",
+      "01": "crc_error",
+      "03": "packet_sent_to_Soon",
+      "04": "invalid_cmd",
+      "05": "robot_ack_timeout",
+      "50": "robot_ack",
+      "51": "robot_nack",
+      "08": "robot_none_ack2",
+      "09": "robot_ack_bad_cms2",
+      "0A": "wait",
+      "0B": "failed_write_flash",
+      "0C": "invalid_data"
+    },
+    "fffa": {
+      "00": "success",
+      "02": "wrg_Param",
+      "03": "error",
+      "04": "flash_Err",
+      "05": "timeout"
+    },
+    "fff8": {
+      "00": "success"
+    },
+    "ffe9": {
+      "00": "success"
+    },
+    "ffff": {
+      "00": "success",
+      "02": "wrongParam",
+      "03": "error"
+    },
+    "fff7": {
+      "00": "success",
+      "01": "crc_error",
+      "02": "invalid_instruction",
+      "08": "ack_timeout",
+      "D7": "filter_status"
+    },
+    "fffe": {
+      "00": "success",
+      "01": "rc_crc_error",
+      "02": "no_wifi_signal",
+      "03": "cant_connect_to_network",
+      "04": "cant_connect_to_cloud",
+      "07": "pws_ip_address"
+    }
+  },
+
+  "topics": {
+    "subscribe_topics": [
+      "$aws/things/%s/shadow/update/accepted",
+      "$aws/things/%s/shadow/update/rejected",
+      "$aws/things/%s/shadow/get/accepted",
+      "$aws/things/%s/shadow/get/rejected"
+    ],
+    "get_data_topics": [
+      "$aws/things/%s/shadow/get"
+    ],
+    "subscribe_dynamic_topic": [
+      "Maytronics/%s/main"
+    ],
+    "send_channels" : {
+      "dynamic_channel" : "Maytronics/%s/main",
+      "regular_channel" : "$aws/things/%s/shadow/get",
+      "update_channel" : "$aws/things/%s/shadow/update"
+    }
+  }
+}

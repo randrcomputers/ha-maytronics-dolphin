@@ -113,12 +113,21 @@ def parse_config_params_clean_mode(data: bytes) -> CleanMode | None:
 
 
 def ps_state_implies_power_on(state: PSState | None) -> bool | None:
-    """HA Power switch: off only when robot reports OFF."""
+    """HA Power switch display: off only when robot reports OFF."""
     if state is None:
         return None
     if state == PSState.OFF:
         return False
     return True
+
+
+def ps_state_matches_power_command(state: PSState | None, *, expect_on: bool) -> bool:
+    """Confirm a STARTUP/SHUTDOWN command — stricter than switch display state."""
+    if state is None:
+        return False
+    if expect_on:
+        return state == PSState.ON
+    return state == PSState.OFF
 
 
 PS_STATE_LABEL: dict[PSState, str] = {

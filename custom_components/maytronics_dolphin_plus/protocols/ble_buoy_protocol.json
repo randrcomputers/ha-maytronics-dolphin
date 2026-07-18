@@ -1,0 +1,1311 @@
+﻿{
+  "sm_destination": "66",
+  "message_pattern": {
+    "sop_preamble": {
+      "constant": "4a4b4c4d",
+      "flip_bytes": true,
+      "start": 0,
+      "end": 4
+    },
+    "src": {
+      "constant": "6e",
+      "start": 5,
+      "end": 6
+    },
+    "destination": {
+      "start": 4,
+      "end": 5
+    },
+    "reserve_field": {
+      "constant": "0a0a",
+      "start": 6,
+      "end": 8
+    },
+    "opcode": {
+      "flip_bytes": true,
+      "start": 8,
+      "end": 10
+    },
+    "data_length": {
+      "flip_bytes": true,
+      "start": 10,
+      "end": 12
+    },
+    "data": {
+      "flip_bytes": true,
+      "length": -1
+    },
+    "checksum": {
+      "constant": "crc",
+      "flip_bytes": true,
+      "length": 4
+    }
+  },
+  "commands": {
+    "get_sm_parameters": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "0202",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 0,
+        "map": {
+          "parameter_id": {
+            "data_type": "int",
+            "start": 0,
+            "end": 1
+          },
+          "group_id": {
+            "data_type": "hex",
+            "start": 1,
+            "end": 2
+          },
+          "data_length": {
+            "data_type": "hex",
+            "start": 2,
+            "end": 3
+          },
+          "data": {
+            "data_type": "hex",
+            "start": 3,
+            "end": 4
+          }
+        }
+      }
+    },
+    "get_sm_data": {
+      "init": 3,
+      "ondemand": false,
+      "opcode": "0013",
+      "destination": "66",
+      "pkfNeeded": false,
+      "need_to_collect_data": true,
+      "data": {
+        "request_length": 0,
+        "response_length": 36,
+        "map": {
+          "sn_length": {
+            "data_type": "int",
+            "start": 0,
+            "end": 1
+          },
+          "sn": {
+            "flip_bytes": true,
+            "data_type": "ascii",
+            "start": 1,
+            "end": 21
+          },
+          "sw_version_major": {
+            "data_type": "int",
+            "start": 21,
+            "end": 23
+          },
+          "sw_version_minor": {
+            "data_type": "int",
+            "start": 23,
+            "end": 25
+          },
+          "boot_sw_version_major": {
+            "data_type": "int",
+            "start": 25,
+            "end": 27
+          },
+          "boot_sw_version_minor": {
+            "data_type": "int",
+            "start": 27,
+            "end": 29
+          },
+          "hw_version": {
+            "data_type": "int",
+            "start": 29,
+            "end": 30
+          },
+          "pcb_hours": {
+            "data_type": "int",
+            "start": 30,
+            "end": 32
+          },
+          "pcb_min": {
+            "data_type": "int",
+            "start": 32,
+            "end": 34
+          },
+          "cycles_counter": {
+            "data_type": "int",
+            "start": 34,
+            "end": 36
+          },
+          "charging_counter": {
+            "data_type": "int",
+            "start": 36,
+            "end": 38
+          }
+        }
+      }
+    },
+    "system_status": {
+      "init": 4,
+      "ondemand": true,
+      "opcode": "0107",
+      "destination": "66",
+      "shadow_dest": "AWS",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 0,
+        "response_length": 53,
+        "map": {
+          "cleaning_modes": {
+            "data_type": "mapping_file",
+            "start": -1,
+            "end": -1
+          },
+          "mu_state": {
+            "data_type": "int",
+            "start": 0,
+            "end": 1
+          },
+          "sm_state": {
+            "data_type": "int",
+            "start": 1,
+            "end": 2
+          },
+          "sm_sub_state": {
+            "data_type": "bitmap",
+            "start": 2,
+            "end": 3
+          },
+          "filter_state": {
+            "data_type": "int",
+            "start": 3,
+            "end": 4
+          },
+          "battery_percentage": {
+            "data_type": "int",
+            "start": 4,
+            "end": 5
+          },
+          "cleaning_mode": {
+            "data_type": "int",
+            "start": 5,
+            "end": 6
+          },
+          "cycle_time": {
+            "data_type": "int",
+            "start": 6,
+            "end": 7
+          },
+          "start_cycle_time": {
+            "data_type": "int",
+            "start": 7,
+            "end": 11
+          },
+          "error_code": {
+            "data_type": "int",
+            "start": 11,
+            "end": 12
+          },
+          "cycle_type": {
+            "data_type": "int",
+            "start": 12,
+            "end": 13
+          },
+          "operation_type": {
+            "data_type": "int",
+            "start": 13,
+            "end": 14
+          }
+        }
+      }
+    },
+    "get_extended_battery_data": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "000F",
+      "destination": "66",
+      "pkfNeeded": false,
+      "need_to_collect_data": true,
+      "data": {
+        "request_length": 0,
+        "response_length": 4,
+        "map": {
+          "cycle_count": {
+            "data_type": "int",
+            "start": 0,
+            "end": 2
+          },
+          "manufacturer_date": {
+            "data_type": "int",
+            "start": 2,
+            "end": 4
+          },
+          "serial_number": {
+            "data_type": "int",
+            "start": 4,
+            "end": 6
+          },
+          "cell_voltage_1": {
+            "data_type": "int",
+            "start": 6,
+            "end": 8
+          },
+          "cell_voltage_2": {
+            "data_type": "int",
+            "start": 8,
+            "end": 10
+          },
+          "cell_voltage_3": {
+            "data_type": "int",
+            "start": 10,
+            "end": 12
+          },
+          "cell_voltage_4": {
+            "data_type": "int",
+            "start": 12,
+            "end": 14
+          },
+          "cell_voltage_5": {
+            "data_type": "int",
+            "start": 14,
+            "end": 16
+          },
+          "cell_voltage_6": {
+            "data_type": "int",
+            "start": 16,
+            "end": 18
+          },
+          "cell_voltage_7": {
+            "data_type": "int",
+            "start": 18,
+            "end": 20
+          },
+          "state_of_health": {
+            "data_type": "int",
+            "start": 20,
+            "end": 22
+          },
+          "max_error": {
+            "data_type": "int",
+            "start": 22,
+            "end": 24
+          }
+        }
+      }
+    },
+    "get_mu_data": {
+      "init": 6,
+      "ondemand": false,
+      "opcode": "0202",
+      "destination": "66",
+      "pkfNeeded": false,
+      "need_to_collect_data": true,
+      "data": {
+        "map": {
+          "group_id": {
+            "data_type": "int",
+            "start": 0,
+            "end": 1
+          },
+          "parameter_id": {
+            "data_type": "int",
+            "start": 1,
+            "end": 2
+          },
+          "data_length": {
+            "data_type": "int",
+            "start": 2,
+            "end": 3
+          },
+          "sn": {
+            "data_type": "ascii",
+            "start": 3,
+            "end": 23
+          },
+          "turn_on_count": {
+            "data_type": "int",
+            "start": 23,
+            "end": 25
+          },
+          "not_completed_cycle": {
+            "data_type": "int",
+            "start": 25,
+            "end": 27
+          },
+          "pcb_hours": {
+            "data_type": "int",
+            "start": 27,
+            "end": 29
+          },
+          "pcb_minutes": {
+            "data_type": "int",
+            "start": 29,
+            "end": 30
+          },
+          "cycle_time_hours": {
+            "data_type": "int",
+            "start": 30,
+            "end": 32
+          },
+          "cycle_time_minutes": {
+            "data_type": "int",
+            "start": 32,
+            "end": 33
+          },
+          "robot_sw_version_major": {
+            "data_type": "int",
+            "start": 33,
+            "end": 34
+          },
+          "robot_sw_version_minor": {
+            "data_type": "int",
+            "start": 34,
+            "end": 36
+          },
+          "hw_version": {
+            "data_type": "int",
+            "start": 36,
+            "end": 37
+          },
+          "boot_sw_version_major": {
+            "data_type": "int",
+            "start": 37,
+            "end": 38
+          },
+          "boot_sw_version_minor": {
+            "data_type": "int",
+            "start": 38,
+            "end": 40
+          },
+          "slippery_pool": {
+            "data_type": "int",
+            "start": 40,
+            "end": 41
+          },
+          "faults": {
+            "data_type": "hex",
+            "start": 41,
+            "end": 121,
+            "field_properties": {
+              "flip_array": false,
+              "fault_block_size": 8
+            }
+          },
+          "sunledge_counter": {
+            "data_type": "int",
+            "start": 121,
+            "end": 123
+          },
+          "stairs_cleaning_session_counter": {
+            "data_type": "int",
+            "start": 123,
+            "end": 125
+          },
+          "homing_difference_angle": {
+            "data_type": "int",
+            "start": 125,
+            "end": 127
+          },
+          "homing_calibration_state": {
+            "data_type": "int",
+            "start": 127,
+            "end": 128
+          },
+          "reserved": {
+            "data_type": "int",
+            "start": 128,
+            "end": 129
+          },
+          "pop_cycle_counter": {
+            "data_type": "int",
+            "start": 129,
+            "end": 131
+          }
+        }
+      }
+    },
+    "get_battery_data": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "000D",
+      "destination": "66",
+      "pkfNeeded": false,
+      "need_to_collect_data": true,
+      "data": {
+        "request_length": 1,
+        "response_length": 24,
+        "map": {
+          "battery_type": {
+            "data_type": "int",
+            "start": 0,
+            "end": 1
+          },
+          "voltage": {
+            "data_type": "int",
+            "start": 1,
+            "end": 3
+          },
+          "current": {
+            "data_type": "int16",
+            "start": 3,
+            "end": 5
+          },
+          "temperature": {
+            "data_type": "int",
+            "start": 5,
+            "end": 7
+          },
+          "pop_state_of_charge": {
+            "data_type": "int",
+            "start": 7,
+            "end": 8
+          },
+          "bms_state_of_charge": {
+            "data_type": "int",
+            "start": 8,
+            "end": 9
+          },
+          "battery_status": {
+            "data_type": "int",
+            "start": 9,
+            "end": 11
+          }
+        }
+      }
+    },
+    "set_sm_parameter": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "0201",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 24
+      }
+    },
+    "set_cleaning_mode": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "0201",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 1
+      }
+    },
+    "set_cycle_time": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "0201",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 1
+      }
+    },
+    "set_eco_mode_duration": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "0201",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 1
+      }
+    },
+    "set_eco_mode_count": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "0201",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 1
+      }
+    },
+    "get_eco_mode_count": {
+      "init": 0,
+      "ondemand": false,
+      "opcode": "0202",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "map": {
+          "group_id": {
+            "data_type": "int",
+            "start": 0,
+            "end": 1
+          },
+          "parameter_id": {
+            "data_type": "int",
+            "start": 1,
+            "end": 2
+          },
+          "data_length": {
+            "data_type": "int",
+            "start": 2,
+            "end": 3
+          },
+          "count_data": {
+            "data_type": "int",
+            "start": 3,
+            "end": 4
+          }
+        }
+      }
+    },
+    "get_first_fault": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "010e",
+      "destination": "66",
+      "pkfNeeded": false,
+      "need_to_collect_data": true,
+      "data": {
+        "request_length": 1,
+        "response_length": 24,
+        "map": {
+          "fault_code": {
+            "data_type": "int",
+            "start": 0,
+            "end": 4
+          },
+          "pcb_time": {
+            "data_type": "int",
+            "start": 4,
+            "end": 8
+          },
+          "cleaning_cycle_counter": {
+            "data_type": "int",
+            "start": 8,
+            "end": 10
+          },
+          "cleaning_charging_counter": {
+            "data_type": "int",
+            "start": 10,
+            "end": 12
+          },
+          "state_before_fault": {
+            "data_type": "int",
+            "start": 12,
+            "end": 13
+          },
+          "sub_state_before_fault": {
+            "data_type": "int",
+            "start": 13,
+            "end": 14
+          },
+          "elapse_state_time": {
+            "data_type": "int",
+            "start": 14,
+            "end": 18
+          },
+          "battery_basic_data": {
+            "data_type": "int",
+            "start": 18,
+            "end": 29
+          },
+          "battery_extanded_data": {
+            "data_type": "int",
+            "start": 29,
+            "end": 53
+          }
+        }
+      }
+    },
+    "get_next_fault": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "010f",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 24,
+        "map": {
+          "fault_code": {
+            "data_type": "int",
+            "start": 0,
+            "end": 4
+          },
+          "pcb_time": {
+            "data_type": "int",
+            "start": 4,
+            "end": 8
+          },
+          "cleaning_cycle_counter": {
+            "data_type": "int",
+            "start": 8,
+            "end": 10
+          },
+          "cleaning_charging_counter": {
+            "data_type": "int",
+            "start": 10,
+            "end": 12
+          },
+          "state_before_fault": {
+            "data_type": "int",
+            "start": 12,
+            "end": 13
+          },
+          "sub_state_before_fault": {
+            "data_type": "int",
+            "start": 13,
+            "end": 14
+          },
+          "elapse_state_time": {
+            "data_type": "int",
+            "start": 14,
+            "end": 18
+          },
+          "battery_basic_data": {
+            "data_type": "int",
+            "start": 18,
+            "end": 29
+          },
+          "battery_extanded_data": {
+            "data_type": "int",
+            "start": 29,
+            "end": 53
+          }
+        }
+      }
+    },
+    "clear_all_faults": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "0110",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 1
+      }
+    },
+    "get_first_charging_history": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "0118",
+      "destination": "66",
+      "pkfNeeded": false,
+      "need_to_collect_data": true,
+      "data": {
+        "request_length": 1,
+        "response_length": 24,
+        "map": {
+          "charging_cycles_number": {
+            "data_type": "int",
+            "start": 0,
+            "end": 2
+          },
+          "charging_cycles_start_time": {
+            "data_type": "int",
+            "start": 2,
+            "end": 6
+          },
+          "charging_cycles_stop_time": {
+            "data_type": "int",
+            "start": 6,
+            "end": 10
+          },
+          "battery_data_start_cycle": {
+            "data_type": "int",
+            "start": 10,
+            "end": 21
+          },
+          "battery_data_stop_cycle": {
+            "data_type": "int",
+            "start": 21,
+            "end": 32
+          },
+          "charging_cycle_exit_reason": {
+            "data_type": "int",
+            "start": 32,
+            "end": 33
+          }
+        }
+      }
+    },
+    "get_next_charging_history": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "0119",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 24,
+        "map": {
+          "charging_cycles_number": {
+            "data_type": "int",
+            "start": 0,
+            "end": 2
+          },
+          "charging_cycles_start_time": {
+            "data_type": "int",
+            "start": 2,
+            "end": 6
+          },
+          "charging_cycles_stop_time": {
+            "data_type": "int",
+            "start": 6,
+            "end": 10
+          },
+          "battery_data_start_cycle": {
+            "data_type": "int",
+            "start": 10,
+            "end": 21
+          },
+          "battery_data_stop_cycle": {
+            "data_type": "int",
+            "start": 21,
+            "end": 32
+          },
+          "charging_cycle_exit_reason": {
+            "data_type": "int",
+            "start": 32,
+            "end": 33
+          }
+        }
+      }
+    },
+    "get_first_cleaning_history": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "011B",
+      "destination": "66",
+      "pkfNeeded": false,
+      "need_to_collect_data": true,
+      "data": {
+        "request_length": 1,
+        "response_length": 24,
+        "map": {
+          "cleaning_cycles_number": {
+            "data_type": "int",
+            "start": 0,
+            "end": 2
+          },
+          "cleaning_cycles_start_time": {
+            "data_type": "int",
+            "start": 2,
+            "end": 6
+          },
+          "cleaning_cycles_stop_time": {
+            "data_type": "int",
+            "start": 6,
+            "end": 10
+          },
+          "battery_data_start_cycle": {
+            "data_type": "int",
+            "start": 10,
+            "end": 21
+          },
+          "battery_data_stop_cycle": {
+            "data_type": "int",
+            "start": 21,
+            "end": 32
+          },
+          "cleaning_cycle_exit_reason": {
+            "data_type": "int",
+            "start": 32,
+            "end": 33
+          },
+          "weekly_cycle_index": {
+            "data_type": "int",
+            "start": 33,
+            "end": 34
+          },
+          "is_pickup": {
+            "data_type": "int",
+            "start": 34,
+            "end": 35
+          },
+          "enabled_features_bitmap": {
+            "data_type": "int",
+            "start": 35,
+            "end": 36
+          },
+          "remaining_capacity_start": {
+            "data_type": "int",
+            "start": 36,
+            "end": 38
+          },
+          "remaining_capacity_stop": {
+            "data_type": "int",
+            "start": 38,
+            "end": 40
+          }
+        }
+      }
+    },
+    "get_next_cleaning_history": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "011C",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 24,
+        "map": {
+          "cleaning_cycles_number": {
+            "data_type": "int",
+            "start": 0,
+            "end": 2
+          },
+          "cleaning_cycles_start_time": {
+            "data_type": "int",
+            "start": 2,
+            "end": 6
+          },
+          "cleaning_cycles_stop_time": {
+            "data_type": "int",
+            "start": 6,
+            "end": 10
+          },
+          "battery_data_start_cycle": {
+            "data_type": "int",
+            "start": 10,
+            "end": 21
+          },
+          "battery_data_stop_cycle": {
+            "data_type": "int",
+            "start": 21,
+            "end": 32
+          },
+          "cleaning_cycle_exit_reason": {
+            "data_type": "int",
+            "start": 32,
+            "end": 33
+          },
+          "weekly_cycle_index": {
+            "data_type": "int",
+            "start": 33,
+            "end": 34
+          },
+          "is_pickup": {
+            "data_type": "int",
+            "start": 34,
+            "end": 35
+          },
+          "enabled_features_bitmap": {
+            "data_type": "int",
+            "start": 35,
+            "end": 36
+          },
+          "remaining_capacity_start": {
+            "data_type": "int",
+            "start": 36,
+            "end": 37
+          },
+          "remaining_capacity_stop": {
+            "data_type": "int",
+            "start": 37,
+            "end": 38
+          }
+        }
+      }
+    },
+    "start_fota": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "0111",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 14,
+        "response_length": 1
+      }
+    },
+    "fota_device_reset": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "0116",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 1
+      }
+    },
+    "fota_abort": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "0115",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 1
+      }
+    },
+    "fota_next_packet_request_from_system_manager": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "0113",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 14,
+        "map": {
+          "fw_version_type": {
+            "data_type": "int16",
+            "start": 1,
+            "end": 3
+          },
+          "fw_version_major": {
+            "data_type": "int16",
+            "start": 3,
+            "end": 5
+          },
+          "fw_version_minor": {
+            "data_type": "int16",
+            "start": 5,
+            "end": 7
+          },
+          "packet_size": {
+            "data_type": "int",
+            "start": 7,
+            "end": 11
+          },
+          "packet_offset": {
+            "data_type": "int",
+            "start": 11,
+            "end": 15
+          }
+        }
+      }
+    },
+    "fota_next_packet_response_from_mobile": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "0113",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "need_padding": false,
+        "request_length": 4,
+        "response_length": 1
+      }
+    },
+    "fota_download_done": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "0114",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 2,
+        "map": {
+          "download_status": {
+            "data_type": "int",
+            "start": 1,
+            "end": 3
+          }
+        }
+      }
+    },
+    "dismiss_pop_fault": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "0123",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 14,
+        "response_length": 1
+      }
+    },
+    "cancel_eco_mode": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "0124",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 14,
+        "response_length": 1
+      }
+    },
+    "start_up_dolphin": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "0300",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 1
+      }
+    },
+    "set_eco_mode_delay": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "0201",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 1
+      }
+    },
+    "get_eco_mode_delay": {
+      "init": 2,
+      "ondemand": false,
+      "opcode": "0202",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "map": {
+          "group_id": {
+            "data_type": "int",
+            "start": 0,
+            "end": 1
+          },
+          "parameter_id": {
+            "data_type": "int",
+            "start": 1,
+            "end": 2
+          },
+          "data_length": {
+            "data_type": "int",
+            "start": 2,
+            "end": 3
+          },
+          "delay_data": {
+            "data_type": "int",
+            "start": 3,
+            "end": 7
+          }
+        }
+      }
+    },
+    "get_eco_mode_duration": {
+      "init": 1,
+      "ondemand": false,
+      "opcode": "0202",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "map": {
+          "group_id": {
+            "data_type": "int",
+            "start": 0,
+            "end": 1
+          },
+          "parameter_id": {
+            "data_type": "int",
+            "start": 1,
+            "end": 2
+          },
+          "data_length": {
+            "data_type": "int",
+            "start": 2,
+            "end": 3
+          },
+          "duration_data": {
+            "data_type": "int",
+            "start": 3,
+            "end": 7
+          }
+        }
+      }
+    },
+    "wifi_networks_list": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "0504",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 0,
+        "response_length": 0,
+        "map": {
+          "number_of_networks": {
+            "data_type": "hex",
+            "start": 0,
+            "end": 1
+          },
+          "index_start_network_list": {
+            "data_type": "hex",
+            "start": 1,
+            "end": -1
+          }
+        }
+      }
+    },
+    "get_nearby_wifi_networks": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "0504",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 0,
+        "response_length": 0
+      }
+    },
+    "connect_to_wifi": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "0500",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 1
+      }
+    },
+    "get_pin_code": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "0505",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 1,
+        "map": {
+          "pin_code": {
+            "data_type": "hex",
+            "start": 0,
+            "end": 32
+          }
+        }
+      }
+    },
+    "get_uuid": {
+      "init": 5,
+      "ondemand": false,
+      "opcode": "0502",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 1,
+        "map": {
+          "uuid": {
+            "data_type": "hex",
+            "start": 0,
+            "end": 36
+          }
+        }
+      }
+    },
+    "set_homing_wall": {
+      "init": -1,
+      "ondemand": false,
+      "opcode": "0201",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 1
+      }
+    },
+    "cloud_connection_status": {
+      "init": 7,
+      "ondemand": false,
+      "opcode": "0503",
+      "destination": "66",
+      "pkfNeeded": false,
+      "data": {
+        "request_length": 1,
+        "response_length": 0,
+        "map": {
+          "connection_status": {
+            "data_type": "int",
+            "start": 0,
+            "end": 1
+          },
+          "error_code": {
+            "data_type": "int",
+            "start": 1,
+            "end": 2
+          }
+        }
+      }
+    }
+  },
+  "acknowledge": {
+    "66": {
+      "50": "success",
+      "82": "in_progress",
+      "83": "unknown_opcode",
+      "84": "opcode_not_permitted",
+      "85": "illegal_data",
+      "86": "fault",
+      "00": "unknown",
+      "01": "backoff_delay",
+      "02": "ap_access",
+      "03": "aws_auth",
+      "04": "aws_access",
+      "07": "aws_login",
+      "08": "aws_register"
+    }
+  },
+  "robot_properties": {
+    "cleaning_modes": {
+      "floor": 60,
+      "regular": 120,
+      "ultra": 120
+    },
+    "state_of_health_parameters": {
+      "exit_reason_wall_time_over": 1,
+      "exit_reason_success": 10,
+      "exit_reason_critical_battery_volt": 3,
+      "good_cycle_time_complete": 113,
+      "enough_cycle_time_complete": 81,
+      "start_voltage": 28.3
+    },
+    "eco_mode_options": [
+      {
+        "count": 6,
+        "duration": 45,
+        "delay": 48
+      },
+      {
+        "count": 2,
+        "duration": 90,
+        "delay": 48
+      },
+      {
+        "count": 3,
+        "duration": 60,
+        "delay": 48
+      }
+    ]
+  },
+  "topics": {
+    "subscribe_topics": [
+      "$aws/things/%s/shadow/name/Search/get/accepted",
+      "$aws/things/%s/shadow/name/Search/get/rejected",
+      "$aws/things/%s/shadow/name/Config/get/accepted",
+      "$aws/things/%s/shadow/name/Config/get/rejected",
+      "$aws/things/%s/shadow/name/Status/get/accepted",
+      "$aws/things/%s/shadow/name/Status/get/rejected",
+      "$aws/things/%s/shadow/name/Status/update/accepted",
+      "$aws/things/%s/shadow/name/Status/update/rejected"
+    ],
+    "get_data_topics": [
+      "$aws/things/%s/shadow/name/Status/get",
+      "$aws/things/%s/shadow/name/Config/get",
+      "$aws/things/%s/shadow/name/Search/get"
+    ],
+    "subscribe_dynamic_topic": [
+      "Maytronics/V2/%s/APP"
+    ],
+    "send_channels": {
+      "dynamic_channel": "Maytronics/V2/%s",
+      "regular_channel": "",
+      "update_channel": ""
+    }
+  }
+}

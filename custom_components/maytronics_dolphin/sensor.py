@@ -240,8 +240,13 @@ class DolphinScheduleSensor(SensorEntity):
 
     @property
     def native_value(self) -> str:
-        return "on" if self._manager.config.enabled else "off"
+        """active = timed run in progress; scheduled = armed; off = disabled."""
+        return self._manager.schedule_state()
 
     @property
-    def extra_state_attributes(self) -> dict[str, bool | int | str]:
-        return self._manager.config.as_attributes()
+    def extra_state_attributes(self) -> dict[str, bool | int | str | None]:
+        attrs = self._manager.config.as_attributes()
+        attrs["run_active"] = self._manager.run_active
+        ends = self._manager.run_ends_at
+        attrs["run_ends_at"] = ends.isoformat() if ends is not None else None
+        return attrs

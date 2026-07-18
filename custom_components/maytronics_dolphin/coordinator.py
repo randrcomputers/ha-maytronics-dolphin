@@ -11,7 +11,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .config_params import CleanMode, PSState, ps_state_implies_power_on
+from .config_params import CleanMode, PSState, ps_state_matches_power_command, ps_state_implies_power_on
 from .connection import DolphinBleConnection
 from .const import DOMAIN, OPT_STATE_POLL_SEC
 from .const import (
@@ -284,8 +284,7 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 ps = None
             if ps is None:
                 continue
-            inferred = ps_state_implies_power_on(ps)
-            if inferred is not None and inferred == expected_on:
+            if ps_state_matches_power_command(ps, expect_on=expected_on):
                 merged = self._merge_poll(
                     prev,
                     ps=ps,

@@ -7,12 +7,14 @@ import logging
 from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.storage import Store
+from homeassistant.util import dt as dt_util
 
+from .config_params import PSState
 from .connection import DolphinBleConnection
 from .const import COMMAND_CHAR_UUID, DOMAIN
 from .coordinator import DolphinCoordinator
@@ -127,6 +129,7 @@ class DolphinScheduleManager:
         self._last_fire: set[str] = set()
         self._timed_task: asyncio.Task[None] | None = None
         self._timed_powered_on = False
+        self._run_ends_at: datetime | None = None
 
     def add_listener(self, listener: Callable[[], None]) -> None:
         self._listeners.append(listener)
@@ -135,6 +138,27 @@ class DolphinScheduleManager:
     def _notify(self) -> None:
         for listener in self._listeners:
             listener()
+
+    @property
+    def run_active(self) -> bool:
+        """True while a confirmed timed run is in progress."""
+        return bool(
+            self._timed_powered_on
+            and self._timed_task is not None
+            and not self._timed_task.done()
+        )
+
+    @property
+    def run_ends_at(self) -> datetime | None:
+        return self._run_ends_at
+
+    def schedule_state(self) -> str:
+        """Sensor value: active | scheduled | off."""
+        if self.run_active:
+            return "active"
+        if self.config.enabled:
+            return "scheduled"
+        return "off"
 
     async def async_load(self) -> None:
         stored = await self._store.async_load()
@@ -198,6 +222,13 @@ class DolphinScheduleManager:
     def _day_matches(self, days: list[int], now: datetime) -> bool:
         return now.weekday() in days
 
+    def _robot_reachable_for_schedule(self) -> bool:
+        """Skip STARTUP spam when the last poll clearly failed / no PS_State."""
+        data = self._coordinator.data or {}
+        if data.get("ps_poll_ok") is False and data.get("ps_state") is None:
+            return False
+        return True
+
     async def async_check_and_run(self, now: datetime) -> None:
         """Fire scheduled runs once per matching minute."""
         cfg = self.config
@@ -223,6 +254,13 @@ class DolphinScheduleManager:
             self._last_fire.add(key)
             if len(self._last_fire) > 48:
                 self._last_fire = set(list(self._last_fire)[-24:])
+            if not self._robot_reachable_for_schedule():
+                _LOGGER.warning(
+                    "Maytronics Dolphin schedule %s skipped — robot unreachable "
+                    "(last PS_State poll failed; PS may be unplugged)",
+                    slot_id,
+                )
+                continue
             _LOGGER.info(
                 "Maytronics Dolphin schedule %s at %s (%s min)",
                 slot_id,
@@ -243,6 +281,7 @@ class DolphinScheduleManager:
 
     async def _shutdown_timed_power(self) -> None:
         if not self._timed_powered_on:
+            self._run_ends_at = None
             return
         try:
             await self._session.async_send_gatt_packet(
@@ -254,6 +293,39 @@ class DolphinScheduleManager:
             _LOGGER.warning("Maytronics Dolphin timed run shutdown failed: %s", err)
         finally:
             self._timed_powered_on = False
+            self._run_ends_at = None
+            self._notify()
+
+    async def async_abort_timed_run(
+        self, reason: str = "", *, send_shutdown: bool = False
+    ) -> None:
+        """Cancel an in-progress timed run (manual stop / PS_State dropped)."""
+        if self._timed_task is None and not self._timed_powered_on:
+            return
+        _LOGGER.info(
+            "Maytronics Dolphin timed run abort (%s)", reason or "unspecified"
+        )
+        was_on = self._timed_powered_on
+        await self._cancel_timed_task()
+        if send_shutdown and was_on:
+            await self._shutdown_timed_power()
+        else:
+            self._timed_powered_on = False
+            self._run_ends_at = None
+            self._notify()
+
+    async def async_watch_power_state(self) -> None:
+        """Abort timed run when robot reports OFF while a run is active."""
+        if not self._timed_powered_on:
+            return
+        data = self._coordinator.data or {}
+        if not data.get("ps_poll_ok"):
+            return
+        ps: PSState | None = data.get("ps_state")
+        if ps == PSState.OFF:
+            await self.async_abort_timed_run(
+                "ps_state_off", send_shutdown=False
+            )
 
     async def async_run_timed(self, duration_minutes: int, *, wait: bool = False) -> None:
         """Power on, wait, power off (one run at a time)."""
@@ -267,24 +339,39 @@ class DolphinScheduleManager:
 
     async def _timed_run_impl(self, duration_minutes: int) -> None:
         self._timed_powered_on = False
+        self._run_ends_at = None
+        self._notify()
         try:
             await self._session.async_send_gatt_packet(
                 build_bt_command_19(BTCommandType.STARTUP),
                 COMMAND_CHAR_UUID,
             )
+            confirmed = await self._coordinator.async_refresh_until_power(True)
+            if not confirmed:
+                _LOGGER.warning(
+                    "Maytronics Dolphin schedule STARTUP sent but PS_State did not "
+                    "confirm ON — aborting timed run (PS may be unplugged)"
+                )
+                self._timed_powered_on = False
+                self._run_ends_at = None
+                self._notify()
+                return
+
             self._timed_powered_on = True
-            await self._coordinator.async_refresh_until_power(True)
+            self._run_ends_at = dt_util.utcnow() + timedelta(minutes=duration_minutes)
+            self._notify()
             await asyncio.sleep(duration_minutes * 60)
             await self._shutdown_timed_power()
         except asyncio.CancelledError:
             _LOGGER.debug("Maytronics Dolphin timed run cancelled")
-            await self._shutdown_timed_power()
+            # Caller (abort / replace / shutdown) owns power cleanup.
             raise
         except Exception as err:  # noqa: BLE001
             _LOGGER.warning("Maytronics Dolphin timed run failed: %s", err)
             await self._shutdown_timed_power()
         finally:
             self._timed_task = None
+            self._notify()
 
     async def async_shutdown(self) -> None:
         await self._cancel_timed_task()
