@@ -16,7 +16,11 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import selector
 
-from .ble import async_list_discovered_dolphins, is_mydolphin_service_info
+from .ble import (
+    async_list_discovered_dolphins,
+    dolphin_identity_hex,
+    is_mydolphin_service_info,
+)
 from .const import (
     CONF_ADDRESS,
     CONF_NAME,
@@ -33,6 +37,22 @@ from .options import get_integration_options
 
 _MAC_RE = re.compile(r"^([0-9A-Fa-f]{2}:){5}([0-9A-Fa-f]{2})$")
 _MANUAL_ENTRY = "manual"
+
+
+def _discovery_unique_id(si: BluetoothServiceInfoBleak) -> str:
+    """Prefer 12-hex local-name identity; fall back to on-air MAC."""
+    identity = dolphin_identity_hex(si)
+    if identity:
+        # Format as MAC-style for consistent unique_id display/storage.
+        return dr.format_mac(":".join(identity[i : i + 2] for i in range(0, 12, 2)))
+    return dr.format_mac(si.address)
+
+
+def _discovery_title(si: BluetoothServiceInfoBleak) -> str:
+    name = (si.name or "").strip()
+    if name:
+        return name
+    return dr.format_mac(si.address)
 
 
 class MaytronicsDolphinConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -56,35 +76,47 @@ class MaytronicsDolphinConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if address == _MANUAL_ENTRY:
                 return await self.async_step_manual()
             address_fmt = dr.format_mac(address)
-            await self.async_set_unique_id(address_fmt, raise_on_progress=False)
-            self._abort_if_unique_id_configured()
             si = self._discovered.get(address_fmt)
-            name = (si.name if si and si.name else None) or DEFAULT_NAME
+            unique = _discovery_unique_id(si) if si else address_fmt
+            await self.async_set_unique_id(unique, raise_on_progress=False)
+            self._abort_if_unique_id_configured()
+            name = _discovery_title(si) if si else DEFAULT_NAME
+            # Always store the on-air BD_ADDR HA uses for connections.
+            connect_addr = address_fmt
             return self.async_create_entry(
                 title=name,
-                data={CONF_ADDRESS: address_fmt, CONF_NAME: name},
+                data={CONF_ADDRESS: connect_addr, CONF_NAME: name},
             )
 
         self._discovered.clear()
+        seen_identities: set[str] = set()
         for si in async_list_discovered_dolphins(self.hass, connectable=True):
+            unique = _discovery_unique_id(si)
             address = dr.format_mac(si.address)
-            if address in current_ids or address in self._discovered:
+            if unique in current_ids or unique in seen_identities:
                 continue
+            if address in self._discovered:
+                continue
+            seen_identities.add(unique)
             self._discovered[address] = si
         # Also scan non-connectable cache (some proxies populate this first).
         for si in async_discovered_service_info(self.hass, connectable=False):
             if not is_mydolphin_service_info(si):
                 continue
+            unique = _discovery_unique_id(si)
             address = dr.format_mac(si.address)
-            if address in current_ids or address in self._discovered:
+            if unique in current_ids or unique in seen_identities:
                 continue
+            if address in self._discovered:
+                continue
+            seen_identities.add(unique)
             self._discovered[address] = si
 
         if not self._discovered:
             return await self.async_step_manual()
 
         options = {
-            address: f"{(si.name or 'Dolphin')} ({address})"
+            address: f"{_discovery_title(si)} ({address})"
             for address, si in self._discovered.items()
         }
         options[_MANUAL_ENTRY] = "Enter MAC address manually…"
@@ -139,13 +171,13 @@ class MaytronicsDolphinConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if not is_mydolphin_service_info(discovery_info):
             return self.async_abort(reason="not_supported")
 
-        address = dr.format_mac(discovery_info.address)
-        await self.async_set_unique_id(address)
+        unique = _discovery_unique_id(discovery_info)
+        await self.async_set_unique_id(unique)
         self._abort_if_unique_id_configured()
 
         self._discovery_info = discovery_info
         self.context["title_placeholders"] = {
-            "name": discovery_info.name or address,
+            "name": _discovery_title(discovery_info),
         }
         return await self.async_step_bluetooth_confirm()
 
@@ -156,7 +188,7 @@ class MaytronicsDolphinConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         assert self._discovery_info is not None
         if user_input is not None:
             address = dr.format_mac(self._discovery_info.address)
-            name = self._discovery_info.name or DEFAULT_NAME
+            name = _discovery_title(self._discovery_info) or DEFAULT_NAME
             return self.async_create_entry(
                 title=name,
                 data={CONF_ADDRESS: address, CONF_NAME: name},
@@ -166,8 +198,7 @@ class MaytronicsDolphinConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="bluetooth_confirm",
             description_placeholders={
-                "name": self._discovery_info.name
-                or self._discovery_info.address,
+                "name": _discovery_title(self._discovery_info),
             },
         )
 

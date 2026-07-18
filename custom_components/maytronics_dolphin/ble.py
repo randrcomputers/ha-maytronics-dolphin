@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 
 from bleak.backends.device import BLEDevice
 from homeassistant.components import bluetooth
@@ -23,6 +24,24 @@ _LOGGER = logging.getLogger(__name__)
 # Texas Instruments — common on Maytronics BLE modules; narrows FFF0-only matches.
 _MANUFACTURER_ID_TEXAS_INSTRUMENTS = 0x000D
 
+# MyDolphin modules typically advertise a 12-hex local name (e.g. ``1C4A2B274D52``).
+_HEX_IDENTITY_RE = re.compile(r"^[0-9A-Fa-f]{12}$")
+
+# FFF0 is a common TI custom UUID — reject known non-Dolphin local names.
+_NON_DOLPHIN_NAMES = frozenset(
+    {
+        "sps",
+        "sps30",
+        "sensirion",
+        "nordic",
+        "nrf52",
+        "nrf52832",
+        "nrf52840",
+        "esphome",
+        "arduino",
+    }
+)
+
 
 def _noop_notify(_handle: int, _data: bytearray) -> None:
     """Notifications enabled for MyDolphin compatibility (payload ignored)."""
@@ -41,27 +60,64 @@ def _has_mydolphin_service(si: BluetoothServiceInfoBleak) -> bool:
     return SERVICE_UUID.lower() in _service_uuids_lower(si)
 
 
+def _local_name(si: BluetoothServiceInfoBleak) -> str:
+    return (si.name or "").strip()
+
+
+def _has_ti_manufacturer(si: BluetoothServiceInfoBleak) -> bool:
+    return _MANUFACTURER_ID_TEXAS_INSTRUMENTS in si.manufacturer_data
+
+
+def _has_hex_identity_name(si: BluetoothServiceInfoBleak) -> bool:
+    return bool(_HEX_IDENTITY_RE.match(_local_name(si)))
+
+
+def dolphin_identity_hex(si: BluetoothServiceInfoBleak) -> str | None:
+    """Stable 12-hex identity from local name when present (preferred unique key)."""
+    name = _local_name(si)
+    if _HEX_IDENTITY_RE.match(name):
+        return name.lower()
+    return None
+
+
 def is_mydolphin_service_info(si: BluetoothServiceInfoBleak) -> bool:
-    """True when advertisement includes MyDolphin GATT service ``FFF0``."""
-    return _has_mydolphin_service(si)
+    """True for advertisements that look like a MyDolphin PSU/robot.
+
+    ``FFF0`` alone is too broad (many TI boards use it — e.g. devices named
+    ``sps``). Require FFF0 plus a Dolphin-like signal: TI manufacturer data
+    and/or a 12-hex local name.
+    """
+    if not _has_mydolphin_service(si):
+        return False
+    name = _local_name(si).lower()
+    if name in _NON_DOLPHIN_NAMES:
+        return False
+    if _has_hex_identity_name(si):
+        return True
+    if _has_ti_manufacturer(si):
+        return True
+    return False
 
 
 def async_list_discovered_dolphins(
     hass: HomeAssistant, *, connectable: bool = True
 ) -> list[BluetoothServiceInfoBleak]:
-    """Return FFF0 advertisers, TI manufacturer preferred, strongest RSSI first."""
-    candidates: list[tuple[bool, int, BluetoothServiceInfoBleak]] = []
+    """Return likely MyDolphin advertisers (deduped by identity), strongest RSSI first."""
+    by_identity: dict[str, tuple[bool, int, BluetoothServiceInfoBleak]] = {}
     for si in bluetooth.async_discovered_service_info(hass, connectable=connectable):
-        if not _has_mydolphin_service(si):
+        if not is_mydolphin_service_info(si):
             continue
-        has_ti = _MANUFACTURER_ID_TEXAS_INSTRUMENTS in si.manufacturer_data
+        identity = dolphin_identity_hex(si) or _addr_hex_digits(si.address)
+        has_ti = _has_ti_manufacturer(si)
         try:
             rssi = int(si.rssi) if si.rssi is not None else -999
         except (TypeError, ValueError):
             rssi = -999
-        candidates.append((has_ti, rssi, si))
-    candidates.sort(key=lambda row: (row[0], row[1]), reverse=True)
-    return [row[2] for row in candidates]
+        prev = by_identity.get(identity)
+        if prev is None or (has_ti, rssi) > (prev[0], prev[1]):
+            by_identity[identity] = (has_ti, rssi, si)
+    ranked = sorted(by_identity.values(), key=lambda row: (row[0], row[1]), reverse=True)
+    return [row[2] for row in ranked]
 
 
 def _ble_device_from_scanners(hass: HomeAssistant, addr: str) -> BLEDevice | None:
@@ -100,7 +156,7 @@ def _ble_device_from_discovered_identity(hass: HomeAssistant, addr: str) -> BLED
         addr_d = _addr_hex_digits(si.address)
         if want != name_d and want != addr_d:
             continue
-        has_ti = _MANUFACTURER_ID_TEXAS_INSTRUMENTS in si.manufacturer_data
+        has_ti = _has_ti_manufacturer(si)
         try:
             rssi = int(si.rssi) if si.rssi is not None else -999
         except (TypeError, ValueError):

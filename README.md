@@ -6,7 +6,7 @@ Community integration for **Maytronics Dolphin** robots paired with the **MyDolp
 
 > **Not the right integration?** Robots using the older **MyDolphin** app (GATT service `FFF0`) should use the legacy component in this monorepo: [`custom_components/maytronics_dolphin`](custom_components/maytronics_dolphin) (see its [README](custom_components/maytronics_dolphin/README.md)). The two integrations are separate; install only the one that matches your app.
 
-> **Legacy changelog (1.17.0):** BLE auto-discovery + device picker; schedule sensor values `active` / `scheduled` / `off`; timed runs abort on manual Power off or unexpected `PS_State` OFF and require confirmed power after STARTUP. Protocol notes: [PROTOCOL.md](custom_components/maytronics_dolphin/PROTOCOL.md).
+> **Legacy changelog (1.17.1):** Discovery tightened — FFF0 alone is ignored unless TI manufacturer data and/or a 12-hex Dolphin local name is present (fixes false `sps` discoveries). **1.17.0:** BLE auto-discovery + picker; schedule `active` / `scheduled` / `off`; timed-run abort/confirm. Protocol: [PROTOCOL.md](custom_components/maytronics_dolphin/PROTOCOL.md).
 
 
 ---

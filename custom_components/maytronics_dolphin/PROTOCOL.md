@@ -15,6 +15,8 @@ Verified against **MyDolphin Android 2.3.19** (`com.maytronics.mydolphin`, `clas
 
 Advertisements typically include service `FFF0`. Many modules also advertise Texas Instruments manufacturer ID `0x000D`. Local name may be hex identity digits that differ from the on-air BD_ADDR.
 
+**HA discovery filter (v1.17.1+):** `FFF0` alone is too broad (other TI boards use it). Auto-discovery requires FFF0 **plus** TI `0x000D` manufacturer data **and/or** a 12-hex local name. Unique ID prefers that hex name so one robot is not listed twice.
+
 ## Frame format
 
 - **SOP** `0xAB`, CRC polynomial **`0xD8`** (`DolphinData.crcCalculation` / `updateCRC`).

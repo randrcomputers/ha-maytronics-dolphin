@@ -2,14 +2,14 @@
 
 Home Assistant custom component for robots that use the **MyDolphin** app (GATT service **FFF0**), not MyDolphin Plus.
 
-Version **1.17.0** · Protocol notes: [PROTOCOL.md](PROTOCOL.md)
+Version **1.17.1** · Protocol notes: [PROTOCOL.md](PROTOCOL.md)
 
 ## Setup (v1.17+)
 
 1. Ensure the robot appears under **Settings → Devices & services → Bluetooth**.
 2. **Add integration → Maytronics Dolphin (BLE)**.
-3. Pick a discovered FFF0 device, or choose **Enter MAC address manually**.
-4. HA also offers discovered devices automatically when they advertise `0000fff0-…`.
+3. Pick a discovered Dolphin (FFF0 **and** TI manufacturer data and/or a 12-hex local name like `1C4A2B274D52`), or choose **Enter MAC address manually**.
+4. HA auto-discovery uses the same filter — plain `FFF0` boards named e.g. `sps` are ignored (**v1.17.1+**).
 
 Close the MyDolphin phone app while HA is connected (single BLE client).
 
