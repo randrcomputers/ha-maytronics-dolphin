@@ -23,6 +23,17 @@ _LOGGER = logging.getLogger(__name__)
 # ``ConfigParamsRead$CommandType`` wire ``CODE`` bytes (APK 2.3.19 ``classes2.dex``).
 CONFIG_PARAMS_CMD_PS_STATE = 13
 CONFIG_PARAMS_CMD_WORKING_CLEAN_MODE = 5
+# APK ``Cycle_Time`` / write ``cycle_time`` (``BLEManager.setCicleTime``).
+CONFIG_PARAMS_CMD_CYCLE_TIME = 1
+
+# ``ConfigParamsWrite.getBytes()`` allocates 46 bytes (CRC in last).
+CONFIG_PARAMS_WRITE_LEN = 46
+CONFIG_PARAMS_WRITE_ARGS_LEN = 43
+
+# ``setCicleTime`` divides minutes by 6 before packing the low byte.
+CYCLE_TIME_UNIT_MINUTES = 6
+CYCLE_TIME_MINUTES_1H = 60
+CYCLE_TIME_MINUTES_2H = 120
 
 
 class PSState(IntEnum):
@@ -110,6 +121,51 @@ def parse_config_params_clean_mode(data: bytes) -> CleanMode | None:
         return CleanMode(mode_byte)
     except ValueError:
         return None
+
+
+def parse_config_params_cycle_time_minutes(data: bytes) -> int | None:
+    """``ConfigParamsRead`` ``Cycle_Time`` (cmd **1**) → minutes (APK stores units of 6 min)."""
+    units = _parse_config_params_ack_byte(data, CONFIG_PARAMS_CMD_CYCLE_TIME)
+    if units is None or units <= 0:
+        return None
+    return int(units) * CYCLE_TIME_UNIT_MINUTES
+
+
+def build_config_params_write_cycle_time(minutes: int) -> bytes:
+    """Mirror ``BLEManager.setCicleTime`` → ``ConfigParamsWrite(cycle_time)`` on ``fff9``.
+
+    APK divides minutes by 6, packs the low byte of that unit into ``mArgs[0]``,
+    writes ``0xFF`` terminator in ``mArgs[1]``, then CRC over the 46-byte frame.
+    """
+    minutes = int(minutes)
+    if minutes not in (CYCLE_TIME_MINUTES_1H, CYCLE_TIME_MINUTES_2H):
+        raise ValueError("cycle time must be 60 or 120 minutes")
+    units = minutes // CYCLE_TIME_UNIT_MINUTES
+    buf = bytearray(CONFIG_PARAMS_WRITE_LEN)
+    buf[0] = SOP & 0xFF
+    buf[1] = CONFIG_PARAMS_CMD_CYCLE_TIME & 0xFF
+    # mArgs start at index 2 (43 bytes); pack low byte of units then 0xFF sentinel.
+    buf[2] = units & 0xFF
+    buf[3] = 0xFF
+    buf[CONFIG_PARAMS_WRITE_LEN - 1] = crc_run(bytes(buf[: CONFIG_PARAMS_WRITE_LEN - 1]), CONFIG_PARAMS_WRITE_LEN - 1)
+    return bytes(buf)
+
+
+def cycle_time_label(minutes: int | None) -> str | None:
+    """HA select option for known cycle lengths."""
+    if minutes == CYCLE_TIME_MINUTES_1H:
+        return "1 hour"
+    if minutes == CYCLE_TIME_MINUTES_2H:
+        return "2 hours"
+    return None
+
+
+def cycle_time_minutes_from_label(label: str) -> int:
+    if label == "1 hour":
+        return CYCLE_TIME_MINUTES_1H
+    if label == "2 hours":
+        return CYCLE_TIME_MINUTES_2H
+    raise ValueError(f"unknown cycle time label: {label}")
 
 
 def ps_state_implies_power_on(state: PSState | None) -> bool | None:

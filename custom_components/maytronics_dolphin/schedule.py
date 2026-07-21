@@ -129,7 +129,10 @@ class DolphinScheduleManager:
         self._last_fire: set[str] = set()
         self._timed_task: asyncio.Task[None] | None = None
         self._timed_powered_on = False
+        self._manual_cycle = False
+        self._run_started_at: datetime | None = None
         self._run_ends_at: datetime | None = None
+        self._run_duration_minutes: int | None = None
 
     def add_listener(self, listener: Callable[[], None]) -> None:
         self._listeners.append(listener)
@@ -139,9 +142,15 @@ class DolphinScheduleManager:
         for listener in self._listeners:
             listener()
 
+    def _clear_run_timing(self) -> None:
+        self._manual_cycle = False
+        self._run_started_at = None
+        self._run_ends_at = None
+        self._run_duration_minutes = None
+
     @property
-    def run_active(self) -> bool:
-        """True while a confirmed timed run is in progress."""
+    def timed_run_active(self) -> bool:
+        """True while HA owns a STARTUP→sleep→SHUTDOWN timed run."""
         return bool(
             self._timed_powered_on
             and self._timed_task is not None
@@ -149,8 +158,23 @@ class DolphinScheduleManager:
         )
 
     @property
+    def run_active(self) -> bool:
+        """True while a timed run or manual Power cycle countdown is showing."""
+        if self.timed_run_active:
+            return True
+        return bool(self._manual_cycle and self._run_ends_at is not None)
+
+    @property
+    def run_started_at(self) -> datetime | None:
+        return self._run_started_at
+
+    @property
     def run_ends_at(self) -> datetime | None:
         return self._run_ends_at
+
+    @property
+    def run_duration_minutes(self) -> int | None:
+        return self._run_duration_minutes
 
     def schedule_state(self) -> str:
         """Sensor value: active | scheduled | off."""
@@ -281,7 +305,7 @@ class DolphinScheduleManager:
 
     async def _shutdown_timed_power(self) -> None:
         if not self._timed_powered_on:
-            self._run_ends_at = None
+            self._clear_run_timing()
             return
         try:
             await self._session.async_send_gatt_packet(
@@ -293,13 +317,34 @@ class DolphinScheduleManager:
             _LOGGER.warning("Maytronics Dolphin timed run shutdown failed: %s", err)
         finally:
             self._timed_powered_on = False
-            self._run_ends_at = None
+            self._clear_run_timing()
             self._notify()
+
+    async def async_note_manual_power_on(self, duration_minutes: int) -> None:
+        """Display-only countdown for Power switch (PS ends the cycle itself)."""
+        if self.timed_run_active:
+            return
+        minutes = max(1, int(duration_minutes))
+        started = dt_util.utcnow()
+        self._manual_cycle = True
+        self._run_started_at = started
+        self._run_duration_minutes = minutes
+        self._run_ends_at = started + timedelta(minutes=minutes)
+        self._notify()
+
+    async def async_clear_manual_power_timing(self) -> None:
+        if not self._manual_cycle:
+            return
+        self._clear_run_timing()
+        self._notify()
 
     async def async_abort_timed_run(
         self, reason: str = "", *, send_shutdown: bool = False
     ) -> None:
         """Cancel an in-progress timed run (manual stop / PS_State dropped)."""
+        if self._manual_cycle and not self.timed_run_active:
+            await self.async_clear_manual_power_timing()
+            return
         if self._timed_task is None and not self._timed_powered_on:
             return
         _LOGGER.info(
@@ -311,18 +356,21 @@ class DolphinScheduleManager:
             await self._shutdown_timed_power()
         else:
             self._timed_powered_on = False
-            self._run_ends_at = None
+            self._clear_run_timing()
             self._notify()
 
     async def async_watch_power_state(self) -> None:
-        """Abort timed run when robot reports OFF while a run is active."""
-        if not self._timed_powered_on:
+        """Clear run timing when robot reports OFF while a run/countdown is active."""
+        if not self._timed_powered_on and not self._manual_cycle:
             return
         data = self._coordinator.data or {}
         if not data.get("ps_poll_ok"):
             return
         ps: PSState | None = data.get("ps_state")
         if ps == PSState.OFF:
+            if self._manual_cycle and not self.timed_run_active:
+                await self.async_clear_manual_power_timing()
+                return
             await self.async_abort_timed_run(
                 "ps_state_off", send_shutdown=False
             )
@@ -339,7 +387,7 @@ class DolphinScheduleManager:
 
     async def _timed_run_impl(self, duration_minutes: int) -> None:
         self._timed_powered_on = False
-        self._run_ends_at = None
+        self._clear_run_timing()
         self._notify()
         try:
             await self._session.async_send_gatt_packet(
@@ -353,12 +401,15 @@ class DolphinScheduleManager:
                     "confirm ON — aborting timed run (PS may be unplugged)"
                 )
                 self._timed_powered_on = False
-                self._run_ends_at = None
+                self._clear_run_timing()
                 self._notify()
                 return
 
             self._timed_powered_on = True
-            self._run_ends_at = dt_util.utcnow() + timedelta(minutes=duration_minutes)
+            started = dt_util.utcnow()
+            self._run_started_at = started
+            self._run_duration_minutes = duration_minutes
+            self._run_ends_at = started + timedelta(minutes=duration_minutes)
             self._notify()
             await asyncio.sleep(duration_minutes * 60)
             await self._shutdown_timed_power()

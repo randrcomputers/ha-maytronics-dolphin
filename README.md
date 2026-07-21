@@ -6,7 +6,7 @@ Unofficial integration for **Maytronics Dolphin** robots that use the **MyDolphi
 
 **Not** MyDolphin **Plus** (v3.x / IoT). For Plus robots use **[ha-maytronics-dolphin-plus](https://github.com/randrcomputers/ha-maytronics-dolphin-plus)**.
 
-Version **1.17.1** · Wire protocol notes: [`custom_components/maytronics_dolphin/PROTOCOL.md`](custom_components/maytronics_dolphin/PROTOCOL.md)
+Version **1.17.3** · Wire protocol notes: [`custom_components/maytronics_dolphin/PROTOCOL.md`](custom_components/maytronics_dolphin/PROTOCOL.md)
 
 ---
 
@@ -61,6 +61,7 @@ The integration can also resolve a configured identity MAC to the on-air address
 | Entity / feature | Purpose |
 |------------------|---------|
 | **Power** | STARTUP / SHUTDOWN (`BTCommand` on `FFF8`) |
+| **Cycle time** | PS cycle length: **1 hour** (floor) or **2 hours** (floor + wall) — APK `setCicleTime` |
 | **Autoclean** | Autoclean enable/disable |
 | **Cleaner state** | `PS_State` (off / on / hold / …) |
 | **Clean program**, surface, working status | From config/status polls |
@@ -77,9 +78,9 @@ Works with the **[Pool Cleaner Card](https://github.com/randrcomputers/ha-pool-c
 |-------|---------|
 | `off` | Schedule disabled |
 | `scheduled` | Armed; no timed run in progress |
-| `active` | Timed run confirmed via `PS_State` ON |
+| `active` | Timed run or manual Power cycle countdown in progress |
 
-Attributes include day/time fields, `enabled`, `run_active`, and `run_ends_at`. Timed runs abort on Power off or unexpected `PS_State` OFF, and do not stay “active” if the PS never powers on.
+Attributes include day/time fields, `enabled`, `run_active`, `run_started_at`, `run_ends_at`, and `run_duration_minutes`. Manual Power uses the PS **Cycle time** for the countdown (display only — the PS stops itself). Timed runs abort on Power off or unexpected `PS_State` OFF, and do not stay “active” if the PS never powers on.
 
 ---
 

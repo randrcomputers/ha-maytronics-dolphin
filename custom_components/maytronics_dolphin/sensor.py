@@ -247,6 +247,11 @@ class DolphinScheduleSensor(SensorEntity):
     def extra_state_attributes(self) -> dict[str, bool | int | str | None]:
         attrs = self._manager.config.as_attributes()
         attrs["run_active"] = self._manager.run_active
+        started = self._manager.run_started_at
         ends = self._manager.run_ends_at
+        attrs["run_started_at"] = (
+            started.isoformat() if started is not None else None
+        )
         attrs["run_ends_at"] = ends.isoformat() if ends is not None else None
+        attrs["run_duration_minutes"] = self._manager.run_duration_minutes
         return attrs

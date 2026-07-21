@@ -72,6 +72,7 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         *,
         ps: PSState | None,
         clean_mode: CleanMode | None,
+        cycle_time_minutes: int | None,
         gatt_working: WorkingStatus | None,
         internal: InternalParamsSnapshot | None,
         fffc_raw: bytes | None,
@@ -91,13 +92,17 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             clean_mode = prev.get("clean_mode")
         clean_mode_poll_ok = clean_mode is not None
 
+        if cycle_time_minutes is None:
+            cycle_time_minutes = prev.get("cycle_time_minutes")
+        cycle_time_poll_ok = cycle_time_minutes is not None
+
         internal_fresh = internal is not None
         if internal is None:
             internal = prev.get("internal_snapshot")
         internal_poll_ok = internal_fresh
 
         if gatt_working is None and fffc_raw:
-            gatt_working = parse_get_status_working(bytes(ffc_raw))
+            gatt_working = parse_get_status_working(bytes(fffc_raw))
         if gatt_working is None:
             prev_hex = prev.get("status_fffc_hex")
             if prev_hex:
@@ -133,6 +138,8 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "ps_poll_ok": ps_poll_ok,
             "clean_mode": clean_mode,
             "clean_mode_poll_ok": clean_mode_poll_ok,
+            "cycle_time_minutes": cycle_time_minutes,
+            "cycle_time_poll_ok": cycle_time_poll_ok,
             "cleaning_surface": surface,
             "internal_poll_ok": internal_poll_ok,
             "internal_snapshot": internal,
@@ -218,6 +225,7 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         prev,
                         ps=ps,
                         clean_mode=prev_clean,
+                        cycle_time_minutes=prev.get("cycle_time_minutes"),
                         gatt_working=None,
                         internal=prev_internal,
                         fffc_raw=None,
@@ -226,13 +234,20 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     return self._finalize_payload(merged, update_tracker=True)
 
         try:
-            ps, clean_mode, gatt_working, internal, fffc_raw, fffd_raw = (
-                await self._session.async_poll_robot_state()
-            )
+            (
+                ps,
+                clean_mode,
+                cycle_time_minutes,
+                gatt_working,
+                internal,
+                fffc_raw,
+                fffd_raw,
+            ) = await self._session.async_poll_robot_state()
             merged = self._merge_poll(
                 prev,
                 ps=ps,
                 clean_mode=clean_mode,
+                cycle_time_minutes=cycle_time_minutes,
                 gatt_working=gatt_working,
                 internal=internal,
                 fffc_raw=fffc_raw,
@@ -245,6 +260,7 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 prev,
                 ps=None,
                 clean_mode=None,
+                cycle_time_minutes=None,
                 gatt_working=None,
                 internal=None,
                 fffc_raw=None,
@@ -252,6 +268,7 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
             merged["ps_poll_ok"] = False
             merged["clean_mode_poll_ok"] = False
+            merged["cycle_time_poll_ok"] = False
             merged["internal_poll_ok"] = False
             return self._finalize_payload(merged, raw_working=None)
 
@@ -289,6 +306,7 @@ class DolphinCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     prev,
                     ps=ps,
                     clean_mode=prev.get("clean_mode"),
+                    cycle_time_minutes=prev.get("cycle_time_minutes"),
                     gatt_working=None,
                     internal=prev.get("internal_snapshot"),
                     fffc_raw=None,

@@ -20,12 +20,15 @@ from homeassistant.exceptions import HomeAssistantError
 
 from .ble import _noop_notify, async_resolve_ble_device
 from .config_params import (
+    CONFIG_PARAMS_CMD_CYCLE_TIME,
     CONFIG_PARAMS_CMD_PS_STATE,
     CONFIG_PARAMS_CMD_WORKING_CLEAN_MODE,
     CleanMode,
     PSState,
     build_config_params_read_request,
+    build_config_params_write_cycle_time,
     parse_config_params_clean_mode,
+    parse_config_params_cycle_time_minutes,
     parse_config_params_ps_state,
 )
 
@@ -408,6 +411,24 @@ class DolphinBleConnection:
             abort_if_command_pending=True,
         )
 
+    async def _read_cycle_time_locked(
+        self,
+        client: BleakClient,
+        *,
+        timeout: float | None = None,
+        pre_write_delay: float = 0.2,
+    ) -> int | None:
+        return await self._read_config_params_locked(
+            client,
+            CONFIG_PARAMS_CMD_CYCLE_TIME,
+            parse_config_params_cycle_time_minutes,
+            "Cycle_Time",
+            timeout=timeout,
+            pre_write_delay=pre_write_delay,
+            warn_on_fail=False,
+            abort_if_command_pending=True,
+        )
+
     async def _read_gatt_notify_locked(
         self,
         client: BleakClient,
@@ -511,6 +532,7 @@ class DolphinBleConnection:
     ) -> tuple[
         PSState | None,
         CleanMode | None,
+        int | None,
         WorkingStatus | None,
         InternalParamsSnapshot | None,
         bytes | None,
@@ -519,33 +541,36 @@ class DolphinBleConnection:
         """Return raw reads; coordinator merges cache and resolves ``working_status``."""
         if self._command_pending():
             _LOGGER.debug("poll skipped (command active)")
-            return (None, None, None, None, None, None)
+            return (None, None, None, None, None, None, None)
         include_probe = bool(self._options().get(OPT_DIAGNOSTIC_PROBE, False))
         async with self._lock:
             if self._command_pending():
-                return (None, None, None, None, None, None)
+                return (None, None, None, None, None, None, None)
             try:
                 client = await self._ensure_connected_locked()
             except (BleakError, HomeAssistantError) as err:
                 _LOGGER.debug("poll: could not connect: %s", err)
                 await self._release_after_operation_locked(force=True)
-                return (None, None, None, None, None, None)
+                return (None, None, None, None, None, None, None)
             try:
                 ps = await self._read_ps_state_locked(
                     client,
                     abort_if_command_pending=True,
                 )
                 if self._command_pending():
-                    return (ps, None, None, None, None, None)
+                    return (ps, None, None, None, None, None, None)
                 clean_mode = await self._read_clean_mode_locked(client)
                 if self._command_pending():
-                    return (ps, clean_mode, None, None, None, None)
+                    return (ps, clean_mode, None, None, None, None, None)
+                cycle_time = await self._read_cycle_time_locked(client)
+                if self._command_pending():
+                    return (ps, clean_mode, cycle_time, None, None, None, None)
                 internal: InternalParamsSnapshot | None = None
                 gatt_working: WorkingStatus | None = None
                 if ps is not None and ps != PSState.OFF:
                     internal = await self._read_internal_params_locked(client)
                     if self._command_pending():
-                        return (ps, clean_mode, None, internal, None, None)
+                        return (ps, clean_mode, cycle_time, None, internal, None, None)
                     gatt_working = await self._read_get_status_locked(client)
                     if gatt_working is None and not self._command_pending():
                         await asyncio.sleep(WORKING_STATUS_RETRY_DELAY_SEC)
@@ -553,16 +578,43 @@ class DolphinBleConnection:
                         if internal is None and not self._command_pending():
                             internal = await self._read_internal_params_locked(client)
                 if self._command_pending():
-                    return (ps, clean_mode, gatt_working, internal, None, None)
+                    return (ps, clean_mode, cycle_time, gatt_working, internal, None, None)
                 ffc, ffd = (None, None)
                 if include_probe:
                     ffc, ffd = await self._read_status_probe_locked(client)
-                return (ps, clean_mode, gatt_working, internal, ffc, ffd)
+                return (ps, clean_mode, cycle_time, gatt_working, internal, ffc, ffd)
             except BleakError:
                 await self._release_after_operation_locked(force=True)
                 raise
             finally:
                 await self._release_after_operation_locked()
+
+    async def async_read_cycle_time_minutes(self) -> int | None:
+        """``ConfigParamsRead`` ``Cycle_Time`` (minutes = ACK × 6)."""
+        async with self._lock:
+            try:
+                client = await self._ensure_connected_locked()
+            except (BleakError, HomeAssistantError) as err:
+                _LOGGER.debug("Cycle_Time read: could not connect: %s", err)
+                await self._release_after_operation_locked(force=True)
+                return None
+            try:
+                return await self._read_cycle_time_locked(client)
+            except BleakError:
+                await self._release_after_operation_locked(force=True)
+                raise
+            finally:
+                await self._release_after_operation_locked()
+
+    async def async_write_cycle_time_minutes(self, minutes: int) -> None:
+        """``BLEManager.setCicleTime`` → ``ConfigParamsWrite(cycle_time)`` on FFF9."""
+        payload = build_config_params_write_cycle_time(minutes)
+        _LOGGER.info(
+            "Maytronics Dolphin setCicleTime %s min → fff9: %s",
+            minutes,
+            payload.hex(),
+        )
+        await self.async_send_gatt_packet(payload, CONFIG_PARAMS_WRITE_UUID)
 
     async def async_read_ps_state(
         self,

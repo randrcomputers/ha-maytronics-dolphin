@@ -38,6 +38,15 @@ Advertisements typically include service `FFF0`. Many modules also advertise Tex
 |------------------------------------|------|--------|
 | `PS_State` | **13** | Power / cleaner state |
 | `Working_Clean_Mode` | **5** | Clean program sensor |
+| `Cycle_Time` | **1** | Cycle length (ACK byte × **6** = minutes) |
+
+### Cycle time write (APK-verified)
+
+`BLEManager.setCicleTime(minutes)` builds `ConfigParamsWrite(cycle_time)` on **FFF9**:
+
+- Divides minutes by **6**, packs the low byte of that unit into `mArgs[0]`, writes `0xFF` terminator, CRC on 46-byte frame.
+- Common UI values: **60** (1 h, typically floor) and **120** (2 h, floor + wall).
+- HA entity: **Cycle time** select (`1 hour` / `2 hours`). Manual **Power** uses this duration for display-only countdown (PS stops itself; HA does not SHUTDOWN for that timer).
 
 `PS_State` ACK values: `0=OFF`, `1=ON`, `2=HOLD`, `3=PROGRAMMING`, `4=BIST`.
 

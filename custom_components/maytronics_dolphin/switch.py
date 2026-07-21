@@ -122,6 +122,16 @@ class DolphinPowerSwitch(CoordinatorEntity, _DolphinBaseSwitch):
             confirmed = await self.coordinator.async_refresh_until_power(True)
             if confirmed:
                 await self.coordinator.async_force_full_refresh()
+                schedule: DolphinScheduleManager | None = (
+                    self.hass.data.get(DOMAIN, {})
+                    .get(self._entry.entry_id, {})
+                    .get(DATA_SCHEDULE)
+                )
+                if schedule is not None and not schedule.timed_run_active:
+                    minutes = (self.coordinator.data or {}).get("cycle_time_minutes")
+                    if not isinstance(minutes, int) or minutes <= 0:
+                        minutes = 120
+                    await schedule.async_note_manual_power_on(minutes)
             else:
                 _LOGGER.warning(
                     "Power on: STARTUP sent but PS_State did not reach ON "
