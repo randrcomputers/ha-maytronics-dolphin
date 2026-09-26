@@ -17,6 +17,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import selector
 
 from .ble import (
+    _local_name,
     async_list_discovered_dolphins,
     dolphin_identity_hex,
     is_mydolphin_service_info,
@@ -49,7 +50,8 @@ def _discovery_unique_id(si: BluetoothServiceInfoBleak) -> str:
 
 
 def _discovery_title(si: BluetoothServiceInfoBleak) -> str:
-    name = (si.name or "").strip()
+    """Human-readable discovery label (NUL-stripped local name, else on-air MAC)."""
+    name = _local_name(si)
     if name:
         return name
     return dr.format_mac(si.address)
@@ -64,12 +66,43 @@ class MaytronicsDolphinConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._discovery_info: BluetoothServiceInfoBleak | None = None
         self._discovered: dict[str, BluetoothServiceInfoBleak] = {}
 
+    def _configured_keys(self, *, include_ignore: bool = True) -> set[str]:
+        """Unique IDs and on-air addresses already claimed by config entries.
+
+        Manual setups often used the BD_ADDR as ``unique_id``. After NUL-stripped
+        identity matching, discovery prefers the 12-hex name identity — those two
+        strings differ, so we also treat ``entry.data[address]`` as claimed.
+        """
+        keys = set(self._async_current_ids(include_ignore=include_ignore))
+        for entry in self._async_current_entries(include_ignore=include_ignore):
+            addr = entry.data.get(CONF_ADDRESS)
+            if addr:
+                keys.add(dr.format_mac(addr))
+        return keys
+
+    def _address_already_configured(self, address: str) -> bool:
+        """True when an existing entry already connects to this on-air MAC."""
+        address = dr.format_mac(address)
+        for entry in self._async_current_entries(include_ignore=True):
+            configured = entry.data.get(CONF_ADDRESS)
+            if configured and dr.format_mac(configured) == address:
+                return True
+            uid = entry.unique_id
+            if uid:
+                try:
+                    if dr.format_mac(str(uid)) == address:
+                        return True
+                except ValueError:
+                    if str(uid).lower() == address.lower():
+                        return True
+        return False
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Pick a discovered FFF0 device, or fall through to manual MAC."""
         errors: dict[str, str] = {}
-        current_ids = self._async_current_ids(include_ignore=False)
+        configured = self._configured_keys(include_ignore=False)
 
         if user_input is not None:
             address = user_input[CONF_ADDRESS]
@@ -80,6 +113,8 @@ class MaytronicsDolphinConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             unique = _discovery_unique_id(si) if si else address_fmt
             await self.async_set_unique_id(unique, raise_on_progress=False)
             self._abort_if_unique_id_configured()
+            if self._address_already_configured(address_fmt):
+                return self.async_abort(reason="already_configured")
             name = _discovery_title(si) if si else DEFAULT_NAME
             # Always store the on-air BD_ADDR HA uses for connections.
             connect_addr = address_fmt
@@ -93,7 +128,11 @@ class MaytronicsDolphinConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         for si in async_list_discovered_dolphins(self.hass, connectable=True):
             unique = _discovery_unique_id(si)
             address = dr.format_mac(si.address)
-            if unique in current_ids or unique in seen_identities:
+            if (
+                unique in configured
+                or address in configured
+                or unique in seen_identities
+            ):
                 continue
             if address in self._discovered:
                 continue
@@ -105,7 +144,11 @@ class MaytronicsDolphinConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 continue
             unique = _discovery_unique_id(si)
             address = dr.format_mac(si.address)
-            if unique in current_ids or unique in seen_identities:
+            if (
+                unique in configured
+                or address in configured
+                or unique in seen_identities
+            ):
                 continue
             if address in self._discovered:
                 continue
@@ -172,8 +215,13 @@ class MaytronicsDolphinConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_abort(reason="not_supported")
 
         unique = _discovery_unique_id(discovery_info)
+        address = dr.format_mac(discovery_info.address)
         await self.async_set_unique_id(unique)
         self._abort_if_unique_id_configured()
+        # Manual / older installs keyed unique_id on BD_ADDR; identity unique_id
+        # differs, so also abort when this on-air address is already in use.
+        if self._address_already_configured(address):
+            return self.async_abort(reason="already_configured")
 
         self._discovery_info = discovery_info
         self.context["title_placeholders"] = {

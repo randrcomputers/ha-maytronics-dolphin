@@ -15,7 +15,7 @@ Verified against **MyDolphin Android 2.3.19** (`com.maytronics.mydolphin`, `clas
 
 Advertisements typically include service `FFF0`. Many modules also advertise Texas Instruments manufacturer ID `0x000D`. Local name may be hex identity digits that differ from the on-air BD_ADDR.
 
-**HA discovery filter (v1.17.1+):** `FFF0` alone is too broad (other TI boards use it). Auto-discovery requires FFF0 **plus** TI `0x000D` manufacturer data **and/or** a 12-hex local name. Unique ID prefers that hex name so one robot is not listed twice.
+**HA discovery filter (v1.17.1+):** `FFF0` alone is too broad (other TI boards use it). Auto-discovery requires FFF0 **plus** TI `0x000D` manufacturer data **and/or** a 12-hex local name. Unique ID prefers that hex name so one robot is not listed twice. Trailing NULs in the local name are stripped (v1.17.4+); discovery also treats an already-configured on-air BD_ADDR as claimed so manual installs are not rediscovered (v1.17.5+).
 
 ## Frame format
 
@@ -31,6 +31,17 @@ Advertisements typically include service `FFF0`. Many modules also advertise Tex
 |----------|-----------|-----|
 | `Startup_dolphin` | **7** | `BTCommandType.STARTUP` |
 | `Shutdown_dolphin` | **6** | `BTCommandType.SHUTDOWN` |
+
+`writePacketRetryHelper` (every FFF8/FFF9 write):
+
+1. Resolve service **FFF0** + target characteristic  
+2. `setCharacteristicNotification(true)` + CCCD `0x2902` enable  
+3. `waitIdle(300)` (wait for GATT busy clear)  
+4. `writeCharacteristic` with **`WRITE_TYPE_DEFAULT` (2)** = write **with** response  
+5. `waitFixedTime(300)`  
+6. Up to **5** retries if GATT not ready  
+
+HA mirrors this on Power (notify stays armed until the session ends). Status poll may light the BT LED without flashing; flashing typically follows a successful FFF8 command write.
 
 ## Status (APK-verified)
 

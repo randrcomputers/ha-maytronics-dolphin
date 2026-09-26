@@ -154,7 +154,7 @@ def _ble_device_from_discovered_identity(hass: HomeAssistant, addr: str) -> BLED
     for si in bluetooth.async_discovered_service_info(hass, connectable=True):
         if not _has_mydolphin_service(si):
             continue
-        name_d = _addr_hex_digits(si.name or "")
+        name_d = _addr_hex_digits(_local_name(si))
         addr_d = _addr_hex_digits(si.address)
         if want != name_d and want != addr_d:
             continue
@@ -172,7 +172,9 @@ def _ble_device_from_discovered_identity(hass: HomeAssistant, addr: str) -> BLED
     pool = ti_only if ti_only else candidates
     pool.sort(key=lambda row: row[1], reverse=True)
     best = pool[0][2]
-    if _addr_hex_digits(best.address) != want and want == _addr_hex_digits(best.name or ""):
+    if _addr_hex_digits(best.address) != want and want == _addr_hex_digits(
+        _local_name(best)
+    ):
         _LOGGER.debug(
             "Resolved configured %s to on-air address %s via name + FFF0 service",
             addr,
