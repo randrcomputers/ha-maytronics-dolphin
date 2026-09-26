@@ -61,7 +61,9 @@ def _has_mydolphin_service(si: BluetoothServiceInfoBleak) -> bool:
 
 
 def _local_name(si: BluetoothServiceInfoBleak) -> str:
-    return (si.name or "").strip()
+    # Some PSUs pad the advertised name with a trailing NUL (e.g. ``27572D1D4D52\x00``).
+    # Strip it so the 12-hex identity match and non-Dolphin name blocklist still work.
+    return (si.name or "").strip().strip("\x00").strip()
 
 
 def _has_ti_manufacturer(si: BluetoothServiceInfoBleak) -> bool:
