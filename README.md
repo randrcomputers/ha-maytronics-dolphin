@@ -6,7 +6,15 @@ Unofficial integration for **Maytronics Dolphin** robots that use the **MyDolphi
 
 **Not** MyDolphin **Plus** (v3.x / IoT). For Plus robots use **[ha-maytronics-dolphin-plus](https://github.com/randrcomputers/ha-maytronics-dolphin-plus)**.
 
-Version **1.17.3** · Wire protocol notes: [`custom_components/maytronics_dolphin/PROTOCOL.md`](custom_components/maytronics_dolphin/PROTOCOL.md)
+Version **1.17.4** · Wire protocol notes: [`custom_components/maytronics_dolphin/PROTOCOL.md`](custom_components/maytronics_dolphin/PROTOCOL.md)
+
+---
+
+## Changelog
+
+### 1.17.4
+
+- **Fix auto-discovery** when the BLE local name has a trailing NUL byte (e.g. `27572D1D4D52\x00`). Those advertisements no longer fail the 12-hex identity check. Thanks [@stormshaker](https://github.com/stormshaker) — [#7](https://github.com/randrcomputers/ha-maytronics-dolphin/issues/7).
 
 ---
 
@@ -38,6 +46,7 @@ Copy `custom_components/maytronics_dolphin` into your HA `config/custom_componen
 ## Setup & discovery (v1.17+)
 
 - **Auto-discovery** and the setup picker list devices that advertise **`FFF0`** and look like a Dolphin: Texas Instruments manufacturer data **`0x000D`** and/or a **12-hex local name** (e.g. `22554C074D50`).
+- Some power supplies pad that name with a trailing **NUL** (`\x00`); v1.17.4+ strips that so discovery still matches.
 - Plain `FFF0` boards (e.g. named `sps`) are **ignored** so Discovered does not fill with junk.
 - Manual MAC entry always remains available.
 
