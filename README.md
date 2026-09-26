@@ -6,16 +6,21 @@ Unofficial integration for **Maytronics Dolphin** robots that use the **MyDolphi
 
 **Not** MyDolphin **Plus** (v3.x / IoT). For Plus robots use **[ha-maytronics-dolphin-plus](https://github.com/randrcomputers/ha-maytronics-dolphin-plus)**.
 
-Version **1.17.5** · Wire protocol notes: [`custom_components/maytronics_dolphin/PROTOCOL.md`](custom_components/maytronics_dolphin/PROTOCOL.md)
+Version **1.17.6** · Wire protocol notes: [`custom_components/maytronics_dolphin/PROTOCOL.md`](custom_components/maytronics_dolphin/PROTOCOL.md)
 
 ---
 
 ## Changelog
 
+### 1.17.6
+
+- Same discovery fixes as intended for 1.17.5 (that tag shipped without the updated sources). Thanks again [@stormshaker](https://github.com/stormshaker) — [#7](https://github.com/randrcomputers/ha-maytronics-dolphin/issues/7).
+  - Discovery titles no longer keep a trailing NUL (`_discovery_title` uses `_local_name()`).
+  - No duplicate discovery for robots already set up by on-air MAC (configured BD_ADDR is treated as claimed).
+
 ### 1.17.5
 
-- **Discovery titles** no longer keep a trailing NUL in picker / confirm / entry names (`_discovery_title` uses the shared NUL-stripped local name).
-- **No duplicate discovery** for robots already set up by on-air MAC: bluetooth discovery and the setup picker also treat the configured BD_ADDR as claimed, not only the hex-identity unique ID. Thanks again [@stormshaker](https://github.com/stormshaker) — [#7](https://github.com/randrcomputers/ha-maytronics-dolphin/issues/7).
+- Release notes only — sources were not updated on the tag. Use **1.17.6**.
 
 ### 1.17.4
 
