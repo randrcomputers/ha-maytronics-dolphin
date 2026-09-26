@@ -6,11 +6,16 @@ Unofficial integration for **Maytronics Dolphin** robots that use the **MyDolphi
 
 **Not** MyDolphin **Plus** (v3.x / IoT). For Plus robots use **[ha-maytronics-dolphin-plus](https://github.com/randrcomputers/ha-maytronics-dolphin-plus)**.
 
-Version **1.17.4** · Wire protocol notes: [`custom_components/maytronics_dolphin/PROTOCOL.md`](custom_components/maytronics_dolphin/PROTOCOL.md)
+Version **1.17.5** · Wire protocol notes: [`custom_components/maytronics_dolphin/PROTOCOL.md`](custom_components/maytronics_dolphin/PROTOCOL.md)
 
 ---
 
 ## Changelog
+
+### 1.17.5
+
+- **Discovery titles** no longer keep a trailing NUL in picker / confirm / entry names (`_discovery_title` uses the shared NUL-stripped local name).
+- **No duplicate discovery** for robots already set up by on-air MAC: bluetooth discovery and the setup picker also treat the configured BD_ADDR as claimed, not only the hex-identity unique ID. Thanks again [@stormshaker](https://github.com/stormshaker) — [#7](https://github.com/randrcomputers/ha-maytronics-dolphin/issues/7).
 
 ### 1.17.4
 
@@ -46,7 +51,8 @@ Copy `custom_components/maytronics_dolphin` into your HA `config/custom_componen
 ## Setup & discovery (v1.17+)
 
 - **Auto-discovery** and the setup picker list devices that advertise **`FFF0`** and look like a Dolphin: Texas Instruments manufacturer data **`0x000D`** and/or a **12-hex local name** (e.g. `22554C074D50`).
-- Some power supplies pad that name with a trailing **NUL** (`\x00`); v1.17.4+ strips that so discovery still matches.
+- Some power supplies pad that name with a trailing **NUL** (`\x00`); v1.17.4+ strips that so discovery still matches, and v1.17.5+ keeps that NUL out of discovery titles / device names.
+- If the robot was already added by **on-air MAC** before identity-based discovery worked, v1.17.5+ will not offer a second “new” discovery for the same PS.
 - Plain `FFF0` boards (e.g. named `sps`) are **ignored** so Discovered does not fill with junk.
 - Manual MAC entry always remains available.
 
